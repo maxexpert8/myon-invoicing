@@ -1,5 +1,3 @@
-import Papa from "papaparse";
-
 import { json } from "./utils/response.js";
 
 import { handleManualInvoice } from "./routes/manualInvoice.js";
@@ -10,6 +8,8 @@ import { handleShopifyWebhook } from "./routes/shopifyWebhook.js";
 
 import { handleInvoiceLink } from "./routes/invoiceLink.js";
 
+import { handleBackfillPdfs } from "./routes/backfillPdfs.js";
+
 export default {
   async fetch(request, env) {
 
@@ -18,6 +18,10 @@ export default {
 
     if (url.pathname === "/invoice-link" && request.method === "GET") {
       return await handleInvoiceLink(request, env);
+    }
+
+    if (url.pathname === "/backfill-pdfs" && request.method === "POST") {
+      return await handleBackfillPdfs(request, env);
     }
 
     if (request.method !== "POST") {
