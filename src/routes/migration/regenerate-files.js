@@ -1,5 +1,3 @@
-
-
 import { json } from "../../utils/response.js";
 
 import {
@@ -142,13 +140,10 @@ export async function handleRegenerateFiles(request, env) {
       return true;
     });
 
-    const targetOrders = limit
-      ? filteredOrders.slice(0, limit)
-      : filteredOrders;
-
     const results = [];
+    const pendingOrders = [];
 
-    for (const order of targetOrders) {
+    for (const order of filteredOrders) {
       const existingInvoice = await getInvoiceByOrderNumber(
         env,
         order.orderNumber
@@ -162,6 +157,34 @@ export async function handleRegenerateFiles(request, env) {
 
         continue;
       }
+
+      if (
+        existingInvoice.pdf_url &&
+        existingInvoice.pdf_url.endsWith(".pdf")
+      ) {
+        results.push({
+          order_number: order.orderNumber,
+          invoice_number: existingInvoice.invoice_number,
+          status: "skipped_existing_pdf",
+          file_url: existingInvoice.pdf_url
+        });
+
+        continue;
+      }
+
+      pendingOrders.push({
+        order,
+        existingInvoice
+      });
+    }
+
+    const targetOrders = limit
+      ? pendingOrders.slice(0, limit)
+      : pendingOrders;
+
+    for (const target of targetOrders) {
+      const order = target.order;
+      const existingInvoice = target.existingInvoice;
 
       const invoiceData = buildInvoiceData(
         order,
@@ -212,8 +235,8 @@ export async function handleRegenerateFiles(request, env) {
         file_url: pdfResult.fileUrl,
         html_file_url: htmlFileUrl
       });
-      if (targetOrders.length > 1) {
-        await delay(45000);
+      if (targetOrders.length > 1 && target !== targetOrders[targetOrders.length - 1]) {
+        await delay(45000);wra
       }
     }
 
