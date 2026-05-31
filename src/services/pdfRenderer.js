@@ -10,14 +10,14 @@ export async function renderPdfFromHtml(env, html) {
   const response = await env.BROWSER.quickAction("pdf", {
     html,
     pdfOptions: {
-      format: "A4",
+      format: "a4",
       printBackground: true,
       preferCSSPageSize: true,
       margin: {
-        top: "12mm",
-        right: "12mm",
-        bottom: "12mm",
-        left: "12mm"
+        top: "6mm",
+        right: "6mm",
+        bottom: "6mm",
+        left: "6mm"
       }
     }
   });

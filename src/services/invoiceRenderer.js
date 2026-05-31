@@ -199,13 +199,20 @@ export function renderInvoiceHtml(data) {
     @media print {
       @page {
         size: A4;
-        margin: 12mm;
+        margin: 6mm;
       }
 
-      body {
+      html,body {
+        width: 210mm;
+        min-height: auto;
+        margin: 0 !important;
         padding: 0 !important;
         -webkit-print-color-adjust: exact;
         print-color-adjust: exact;
+        }
+
+      * {
+        box-sizing: border-box;
       }
 
       a {
@@ -259,7 +266,7 @@ export function renderInvoiceHtml(data) {
     }
   </style>
 </head>
-<body style="font-family: Arial, Helvetica, sans-serif; color: #1b2330; margin: 0; padding: 42px 48px; font-size: 14px; line-height: 1.5; background: #fff;">
+<body style="font-family: Arial, Helvetica, sans-serif; color: #1b2330; margin: 0; padding: 18px 28px; font-size: 14px; line-height: 1.5; background: #fff;">
   <div style="max-width: 980px; margin: 0 auto; position: relative;">
 
     <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 40px;">
