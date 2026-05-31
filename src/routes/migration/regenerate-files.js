@@ -12,7 +12,14 @@ import {
 
 import { renderInvoiceHtml } from "../../services/invoiceRenderer.js";
 
+
 import { uploadInvoicePdf } from "../../services/pdfRenderer.js";
+
+function delay(ms) {
+  return new Promise(resolve =>
+    setTimeout(resolve, ms)
+  );
+}
 
 function buildBillingAddress(order) {
   return [
@@ -205,6 +212,9 @@ export async function handleRegenerateFiles(request, env) {
         file_url: pdfResult.fileUrl,
         html_file_url: htmlFileUrl
       });
+      if (targetOrders.length > 1) {
+        await delay(45000);
+      }
     }
 
     return json({

@@ -22,11 +22,11 @@ export default {
       return await handleInvoiceLink(request, env);
     }
 
-    if (url.pathname === "/backfill-pdfs" && request.method === "POST") {
+    if (url.pathname === "/migration/backfill-pdfs" && request.method === "POST") {
       return await handleBackfillPdfs(request, env);
     }
 
-    if (url.pathname === "/regenerate-files" && request.method === "POST") {
+    if (url.pathname === "/migration/regenerate-files" && request.method === "POST") {
       return await handleRegenerateFiles(request, env);
     }
 
