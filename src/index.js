@@ -1,15 +1,77 @@
-/**
- * Welcome to Cloudflare Workers! This is your first worker.
- *
- * - Run `npm run dev` in your terminal to start a development server
- * - Open a browser tab at http://localhost:8787/ to see your worker in action
- * - Run `npm run deploy` to publish your worker
- *
- * Learn more at https://developers.cloudflare.com/workers/
- */
+import Papa from "papaparse";
+
+import { json } from "./utils/response.js";
+
+import { handleManualInvoice } from "./routes/manualInvoice.js";
+
+import { handleMigrationImportCsv } from "./routes/migrationImportCsv.js";
+
+import { handleShopifyWebhook } from "./routes/shopifyWebhook.js";
+
+import { handleInvoiceLink } from "./routes/invoiceLink.js";
 
 export default {
-	async fetch(request, env, ctx) {
-		return new Response("Hello World!");
-	},
+  async fetch(request, env) {
+
+    const url =
+      new URL(request.url);
+
+    if (url.pathname === "/invoice-link" && request.method === "GET") {
+      return await handleInvoiceLink(request, env);
+    }
+
+    if (request.method !== "POST") {
+      return json({
+        error:
+          "Method Not Allowed"
+      }, 405);
+    }
+
+    const auth =
+      request.headers.get(
+        "x-manual-secret"
+      );
+
+    if (
+      auth !== env.MANUAL_SECRET
+    ) {
+      return json({
+        error: "Unauthorized"
+      }, 401);
+    }
+
+    if (
+      url.pathname ===
+      "/manual-invoice"
+    ) {
+      return await handleManualInvoice(
+        request,
+        env
+      );
+    }
+
+    if (
+      url.pathname ===
+      "/migration/import-csv"
+    ) {
+      return await handleMigrationImportCsv(
+        request,
+        env
+      );
+    }
+
+    if (
+      url.pathname ===
+      "/webhooks/orders-create"
+    ) {
+      return await handleShopifyWebhook(
+        request,
+        env
+      );
+    }
+
+    return json({
+      error: "Not Found"
+    }, 404);
+  }
 };

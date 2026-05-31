@@ -1,0 +1,23 @@
+name = "myon-invoice-worker"
+main = "src/index.js"
+compatibility_date = "2026-05-14"
+account_id = "78b1f2828473f7c4d4887ede1c6e302d"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "myonclinic_store_invoices"
+database_id = "0fec89a5-107b-4328-884e-e729cf1543c0"
+
+[[r2_buckets]]
+binding = "INVOICES"
+bucket_name = "myonclinic-store-invoices"
+
+[vars]
+PUBLIC_BUCKET_URL = "https://pub-d3fa4587a6fa4a90a3ca892631722ddc.r2.dev"
+INVOICE_PREFIX = "INV-MYONS-"
+SHOPIFY_SHOP_DOMAIN="366cba-31.myshopify.com"
+SHOPIFY_API_VERSION="2026-04"
+
+[browser]
+binding = "BROWSER"
+remote = true
