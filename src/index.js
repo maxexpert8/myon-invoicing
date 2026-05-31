@@ -2,13 +2,15 @@ import { json } from "./utils/response.js";
 
 import { handleManualInvoice } from "./routes/manualInvoice.js";
 
-import { handleMigrationImportCsv } from "./routes/migrationImportCsv.js";
+import { handleMigrationImportCsv } from "./routes/migration/migrationImportCsv.js";
 
 import { handleShopifyWebhook } from "./routes/shopifyWebhook.js";
 
 import { handleInvoiceLink } from "./routes/invoiceLink.js";
 
-import { handleBackfillPdfs } from "./routes/backfillPdfs.js";
+import { handleBackfillPdfs } from "./routes/migration/backfillPdfs.js";
+
+import { handleRegenerateFiles } from "./routes/migration/regenerate-files.js";
 
 export default {
   async fetch(request, env) {
@@ -22,6 +24,10 @@ export default {
 
     if (url.pathname === "/backfill-pdfs" && request.method === "POST") {
       return await handleBackfillPdfs(request, env);
+    }
+
+    if (url.pathname === "/regenerate-files" && request.method === "POST") {
+      return await handleRegenerateFiles(request, env);
     }
 
     if (request.method !== "POST") {
