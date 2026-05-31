@@ -12,14 +12,30 @@ import { handleBackfillPdfs } from "./routes/migration/backfillPdfs.js";
 
 import { handleRegenerateFiles } from "./routes/migration/regenerate-files.js";
 
+import { handleInvoiceDownload } from "./routes/invoiceDownload.js";
+
 export default {
   async fetch(request, env) {
 
-    const url =
-      new URL(request.url);
+    const url = new URL(request.url);
+
+    if (request.method === "OPTIONS") {
+      return new Response(null, {
+        status: 204,
+        headers: {
+          "access-control-allow-origin": "*",
+          "access-control-allow-methods": "GET, POST, OPTIONS",
+          "access-control-allow-headers": "content-type"
+        }
+      });
+    }
 
     if (url.pathname === "/invoice-link" && request.method === "GET") {
       return await handleInvoiceLink(request, env);
+    }
+
+    if ( url.pathname === "/invoice-download" && (request.method === "GET" || request.method === "HEAD") ) {
+      return await handleInvoiceDownload(request, env);
     }
 
     if (url.pathname === "/migration/backfill-pdfs" && request.method === "POST") {
