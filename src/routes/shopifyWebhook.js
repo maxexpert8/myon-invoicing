@@ -255,7 +255,10 @@ export async function handleShopifyWebhook(request, env) {
       invoiceNumber,
       fileUrl,
       source: `shopify_webhook:${topic || "unknown"}:${webhookId || "no-id"}`,
-      issuedAt: invoiceData.issuedAt
+      issuedAt: invoiceData.issuedAt,
+      customerName: invoiceData.customerName || null,
+      customerEmail: invoiceData.customerEmail || null,
+      totalAmount: invoiceData.totalGross || null
     });
 
     await incrementInvoiceCounter(env);

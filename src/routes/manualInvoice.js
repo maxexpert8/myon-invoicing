@@ -167,7 +167,22 @@ export async function handleManualInvoice(
 
         source: "manual",
 
-        issuedAt
+        issuedAt,
+
+        customerName:
+          body.customer_name ||
+          body.customerFullName ||
+          body.billingName ||
+          null,
+
+        customerEmail:
+          body.customer_email ||
+          null,
+
+        totalAmount:
+          body.totalGross ||
+          body.total_gross ||
+          null
       }
     );
 

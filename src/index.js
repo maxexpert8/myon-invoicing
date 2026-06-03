@@ -14,6 +14,15 @@ import { handleRegenerateFiles } from "./routes/migration/regenerate-files.js";
 
 import { handleInvoiceDownload } from "./routes/invoiceDownload.js";
 
+import { handleBackfillAdminFields } from "./routes/migration/backfill-admin-fields.js";
+
+import { handleAdminDownloadZip } from "./routes/adminDownloadZip.js";
+
+import {
+  handleAdminPage,
+  handleAdminInvoices
+} from "./routes/adminInvoices.js";
+
 export default {
   async fetch(request, env) {
 
@@ -44,6 +53,22 @@ export default {
 
     if (url.pathname === "/migration/regenerate-files" && request.method === "POST") {
       return await handleRegenerateFiles(request, env);
+    }
+
+    if (url.pathname === "/migration/backfill-admin-fields" && request.method === "POST") {
+      return await handleBackfillAdminFields(request, env);
+    }
+
+    if (url.pathname === "/admin" && request.method === "GET") {
+      return await handleAdminPage(request, env);
+    }
+
+    if (url.pathname === "/admin/invoices" && request.method === "GET") {
+      return await handleAdminInvoices(request, env);
+    }
+
+    if (url.pathname === "/admin/download-zip" && request.method === "POST") {
+      return await handleAdminDownloadZip(request, env);
     }
 
     if (request.method !== "POST") {

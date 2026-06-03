@@ -192,7 +192,22 @@ export async function handleMigrationImportCsv(
             "migration_csv",
 
           issuedAt:
-            order.issuedAt
+            order.issuedAt,
+
+          customerName:
+            order.customerName ||
+            order.billingName ||
+            null,
+
+          customerEmail:
+            order.customerEmail ||
+            order.email ||
+            null,
+
+          totalAmount:
+            order.totalGross ||
+            order.total ||
+            null
         }
       );
 

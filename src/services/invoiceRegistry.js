@@ -18,7 +18,10 @@ export async function createInvoiceRegistryRecord(
     invoiceNumber,
     fileUrl,
     source,
-    issuedAt
+    issuedAt,
+    customerName = null,
+    customerEmail = null,
+    totalAmount = null
   }
 ) {
   return await env.DB.prepare(`
@@ -30,9 +33,12 @@ export async function createInvoiceRegistryRecord(
       pdf_url,
       status,
       source,
-      issued_at
+      issued_at,
+      customer_name,
+      customer_email,
+      total_amount
     )
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `)
     .bind(
       shopifyOrderId,
@@ -42,7 +48,10 @@ export async function createInvoiceRegistryRecord(
       fileUrl,
       "issued",
       source,
-      issuedAt
+      issuedAt,
+      customerName,
+      customerEmail,
+      totalAmount
     )
     .run();
 }
