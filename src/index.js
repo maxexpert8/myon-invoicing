@@ -16,12 +16,13 @@ import { handleInvoiceDownload } from "./routes/invoiceDownload.js";
 
 import { handleBackfillAdminFields } from "./routes/migration/backfill-admin-fields.js";
 
-import { handleAdminDownloadZip } from "./routes/adminDownloadZip.js";
+import { handleAdminDownloadZip } from "./routes/admin/adminDownloadZip.js";
 
-import {
-  handleAdminPage,
-  handleAdminInvoices
-} from "./routes/adminInvoices.js";
+import { handleAdminPage, handleAdminInvoices } from "./routes/admin/adminInvoices.js";
+
+import { handleAdminReconcile } from "./routes/admin/adminReconcile.js";
+
+import { handleAdminCreateMissingInvoices } from "./routes/admin/adminCreateMissingInvoices.js";
 
 export default {
   async fetch(request, env) {
@@ -69,6 +70,14 @@ export default {
 
     if (url.pathname === "/admin/download-zip" && request.method === "POST") {
       return await handleAdminDownloadZip(request, env);
+    }
+
+    if (url.pathname === "/admin/reconcile" && request.method === "GET") {
+      return await handleAdminReconcile(request, env);
+    }
+
+    if (url.pathname === "/admin/create-missing-invoices" && request.method === "POST") {
+      return await handleAdminCreateMissingInvoices(request, env);
     }
 
     if (request.method !== "POST") {

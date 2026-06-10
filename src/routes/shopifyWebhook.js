@@ -9,6 +9,7 @@ import {
 
 import { renderInvoiceHtml } from "../services/invoiceRenderer.js";
 import { uploadInvoicePdf } from "../services/pdfRenderer.js";
+import productImages from "../../products_images.json";
 
 function clean(value) {
   return String(value ?? "").trim();
@@ -109,7 +110,10 @@ function normalizeWebhookOrder(order, invoiceNumber, invoiceSequence) {
     const lineNet = money(Number(lineGross) - Number(taxAmount));
 
     return {
-      productImage: line.image || "",
+      productImage:
+        productImages[line.title || line.name] ||
+        line.image ||
+        "",
       productName: line.title || line.name || "Produkt",
       quantity,
       taxTitle,
@@ -203,6 +207,35 @@ export async function handleShopifyWebhook(request, env) {
 
     if (!orderNumber) {
       return json({ error: "Missing Shopify order number" }, 400);
+    }
+
+    const isDryRun =
+      request.headers.get("x-shopify-test") === "true" ||
+      order.test === true;
+
+    const financialStatus =
+      String(order.financial_status || "").toLowerCase();
+
+    if (isDryRun) {
+      return json({
+        success: true,
+        dry_run: true,
+        message: "Shopify test webhook received. No invoice created.",
+        topic,
+        order_number: orderNumber,
+        financial_status: financialStatus
+      });
+    }
+
+    if (financialStatus !== "paid") {
+      return json({
+        success: true,
+        skipped: true,
+        reason: "Order is not paid",
+        topic,
+        order_number: orderNumber,
+        financial_status: financialStatus
+      });
     }
 
     const existing = await getInvoiceByOrderNumber(env, orderNumber);

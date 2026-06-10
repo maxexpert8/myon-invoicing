@@ -108,6 +108,7 @@ export function renderInvoiceHtml(data) {
   const items = Array.isArray(data.items) ? data.items : [];
   const totals = calculateInvoiceTotals(data);
   const vatRows = buildVatRows(data);
+  const nonce = crypto.getRandomValues(new Uint8Array(16)).reduce((acc, byte) => acc + byte.toString(16).padStart(2, '0'), '');
 
   const customerLines = [
     data.customerFullName ||
@@ -190,7 +191,12 @@ export function renderInvoiceHtml(data) {
 <head>
   <meta charset="utf-8">
   <title>${escapeHtml(data.invoiceNumber)}</title>
-  <style>
+  <style nonce="${nonce}">
+    @font-face {
+      font-family: 'UbuntuLight';
+      src: url('https://fonts.gstatic.com/s/ubuntu/v20/4iCs6KVjbNBYlgoKcg72n8Af.woff2') format('woff2');
+      font-weight: 300;
+    }
     @media print {
       @page {
         size: A4;
@@ -444,9 +450,9 @@ export function renderInvoiceHtml(data) {
             </linearGradient>
           </defs>
           <g transform="translate(-1306 -728)" clip-path="url(#clip0)">
-            <text transform="matrix(0.770296 0 0 0.770185 1594.09 941)" font-size="353" font-weight="300" font-family="Ubuntu Light,Ubuntu Light_MSFontService,sans-serif">myon</text>
-            <text transform="matrix(0.770296 0 0 0.770185 2270.41 941)" font-size="353" font-weight="300" font-family="Ubuntu Light,Ubuntu Light_MSFontService,sans-serif">.</text>
-            <text transform="matrix(0.770296 0 0 0.770185 2337.43 941)" font-size="353" font-weight="300" font-family="Ubuntu Light,Ubuntu Light_MSFontService,sans-serif">clinic</text>
+            <text transform="matrix(0.770296 0 0 0.770185 1594.09 941)" font-size="353" font-weight="300" font-family="UbuntuLight, sans-serif">myon</text>
+            <text transform="matrix(0.770296 0 0 0.770185 2270.41 941)" font-size="353" font-weight="300" font-family="UbuntuLight, sans-serif">.</text>
+            <text transform="matrix(0.770296 0 0 0.770185 2337.43 941)" font-size="353" font-weight="300" font-family="UbuntuLight, sans-serif">clinic</text>
             <path transform="matrix(1.00014 0 0 1 144.394 -595.53)" fill-rule="evenodd" fill="url(#fill1)" d="M1340.24 1342.36C1322.47 1342.36 1305.39 1348.53 1291.77 1359.7 1278.14 1348.7 1261.09 1342.53 1243.3 1342.36 1198.13 1342.36 1162.09 1381.36 1162.09 1429.36 1162.09 1449.2 1168.65 1468.37 1180.89 1484.36 1187.44 1493.03 1216.76 1525.2 1269.87 1581.04L1271.07 1582.2C1282.47 1593.2 1300.91 1593.03 1312.12 1582.03 1312.29 1581.87 1312.63 1581.54 1312.81 1581.2L1313.15 1580.87C1366.62 1524.53 1396.28 1492.7 1402.84 1484.2 1415.41 1468.37 1421.97 1449.03 1421.63 1429.2 1421.45 1381.7 1385.59 1342.36 1340.24 1342.36L1340.24 1342.36ZM1291.94 1388.54C1300.22 1400.53 1304.54 1414.37 1304.72 1428.7 1304.72 1437.03 1298.83 1443.2 1291.94 1443.2 1285.05 1443.2 1279.18 1436.7 1279.18 1428.7 1279.36 1414.37 1283.83 1400.53 1291.94 1388.54ZM1387.48 1472.36C1381.45 1479.86 1351.78 1512.03 1299.01 1567.03 1295.4 1570.86 1289.36 1571.2 1285.38 1567.7 1285.38 1567.7 1285.22 1567.53 1285.22 1567.53L1284.87 1567.2 1284.18 1566.53C1231.76 1511.7 1202.27 1479.53 1196.41 1472.03 1187.09 1459.36 1182.09 1444.2 1182.09 1428.7 1182.09 1390.87 1209.51 1361.2 1243.3 1361.2 1255.89 1361.2 1268.32 1365.53 1277.97 1373.36 1265.39 1389.2 1258.84 1408.53 1259.18 1428.36 1259.18 1447.2 1273.5 1462.7 1291.77 1462.7 1310.06 1462.7 1324.2 1447.2 1324.2 1428.36 1324.2 1408.53 1317.65 1389.37 1305.39 1373.36 1315.4 1365.86 1327.46 1361.86 1340.06 1361.86 1373.86 1361.86 1401.28 1391.53 1401.28 1428.36 1401.81 1444.37 1396.8 1459.7 1387.48 1472.36L1387.48 1472.36Z"/>
           </g>
         </svg>
@@ -536,7 +542,7 @@ export function renderInvoiceHtml(data) {
     <div class="inv-company-info-row">
       <div>
         <p class="inv-info-title">CEO / Managing Director</p>
-        <p class="inv-info-text">Katharina Hieronimi.</p>
+        <p class="inv-info-text">Katharina Hieronimi</p>
       </div>
       <div>
         <p class="inv-info-title">Commercial Register</p>

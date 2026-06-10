@@ -1,4 +1,0 @@
-{
-    "starting_invoice_sequence": 10033,
-    "csv": "Name,Email,Subtotal,Taxes,Total,Created at,Lineitem quantity,Lineitem name,Lineitem price,Billing Name,Billing Address1,Billing Address2,Billing Company,Billing City,Billing Zip,Billing Country,Payment Method,Id,Tax 1 Name,Tax 1 Value\n#1085,s_koenecke@web.de,29.99,4.79,29.99,2026-05-30 20:58:25 +0200,1,Digitale Begleitung von Dr. Franziska Rubin,29.99,Sabrina Koenecke,Marcusallee 47 B,,,Bremen,28359,DE,Shopify Payments,12770376319307,DE MwSt 19%,4.79\n"
-}
