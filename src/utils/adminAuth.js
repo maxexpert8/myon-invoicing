@@ -51,7 +51,7 @@ async function verifyShopifyAdminHmac(request, env) {
   return timingSafeEqual(computed, hmac);
 }
 
-function verifyManualSecret(request, env) {
+export function verifyManualSecret(request, env) {
   const manualSecret = request.headers.get("x-manual-secret");
 
   return Boolean(

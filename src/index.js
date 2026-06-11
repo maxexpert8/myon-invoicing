@@ -1,13 +1,12 @@
 import { json } from "./utils/response.js";
 
+import { verifyManualSecret } from "./utils/adminAuth.js";
+
 import { handleManualInvoice } from "./routes/manualInvoice.js";
 
 import { handleMigrationImportCsv } from "./routes/migration/migrationImportCsv.js";
 
-import {
-  handleShopifyWebhook,
-  processShopifyInvoiceQueueMessage
-} from "./routes/shopifyWebhook.js";
+import { handleShopifyWebhook, processShopifyInvoiceQueueMessage } from "./routes/shopifyWebhook.js";
 
 import { handleInvoiceLink } from "./routes/invoiceLink.js";
 
@@ -74,41 +73,56 @@ const manualSecretRoutes = {
 
 export default {
   async fetch(request, env) {
-    const url = new URL(request.url);
-    const routeKey = `${request.method} ${url.pathname}`;
+    try {
+      const url = new URL(request.url);
+      const routeKey = `${request.method} ${url.pathname}`;
 
-    if (request.method === "OPTIONS") {
-      const corsHeaders = corsHeadersForRequest(request);
+      if (request.method === "OPTIONS") {
+        const corsHeaders = corsHeadersForRequest(request);
 
-      if (!corsHeaders) {
-        return new Response(null, { status: 403 });
+        if (!corsHeaders) {
+          return new Response(null, { status: 403 });
+        }
+
+        return new Response(null, {
+          status: 204,
+          headers: corsHeaders
+        });
+      }
+      if (publicRoutes[routeKey]) {
+        return await publicRoutes[routeKey](request, env);
+      }
+      if (adminRoutes[routeKey]) {
+        return await adminRoutes[routeKey](request, env);
+      }
+      if (webhookRoutes[routeKey]) {
+        return await webhookRoutes[routeKey](request, env);
+      }
+      if (manualSecretRoutes[routeKey]) {
+        if (!verifyManualSecret(request, env)) {
+          return json({ error: "Unauthorized" }, 401);
+        }
+        if (url.pathname.startsWith("/migration/") && env.ALLOW_MIGRATION_ROUTES !== "true") {
+          return json({ error: "Migration routes are disabled" }, 403);
+        }
+
+        return await manualSecretRoutes[routeKey](request, env);
       }
 
-      return new Response(null, {
-        status: 204,
-        headers: corsHeaders
+      return json({ error: "Not Found" }, 404);
+    } catch (error) {
+      console.error("Unhandled Worker fetch error", {
+        message: error?.message,
+        name: error?.name,
+        stack: error?.stack,
+        method: request?.method,
+        url: request?.url
       });
-    }
-    if (publicRoutes[routeKey]) {
-      return await publicRoutes[routeKey](request, env);
-    }
-    if (adminRoutes[routeKey]) {
-      return await adminRoutes[routeKey](request, env);
-    }
-    if (webhookRoutes[routeKey]) {
-      return await webhookRoutes[routeKey](request, env);
-    }
-    if (manualSecretRoutes[routeKey]) {
-      const auth = request.headers.get("x-manual-secret");
 
-      if (auth !== env.MANUAL_SECRET) {
-        return json({ error: "Unauthorized" }, 401);
-      }
-
-      return await manualSecretRoutes[routeKey](request, env);
+      return json({
+        error: "Internal Server Error"
+      }, 500);
     }
-
-    return json({ error: "Not Found" }, 404);
   },
 
   async queue(batch, env) {
