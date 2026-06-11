@@ -1,56 +1,5 @@
 import { json } from "../../utils/response.js";
-
-async function isAuthorized(request, env) {
-  const url = new URL(request.url);
-  const hmac = url.searchParams.get("hmac");
-
-  if (!hmac || !env.SHOPIFY_WEBHOOK_SECRET) {
-    return false;
-  }
-
-  const params = new URLSearchParams(url.search);
-  params.delete("hmac");
-  params.delete("signature");
-
-  const message = Array.from(params.entries())
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([key, value]) => `${key}=${value}`)
-    .join("&");
-
-  const encoder = new TextEncoder();
-
-  const key = await crypto.subtle.importKey(
-    "raw",
-    encoder.encode(env.SHOPIFY_WEBHOOK_SECRET),
-    { name: "HMAC", hash: "SHA-256" },
-    false,
-    ["sign"]
-  );
-
-  const signature = await crypto.subtle.sign(
-    "HMAC",
-    key,
-    encoder.encode(message)
-  );
-
-  const computed = Array.from(new Uint8Array(signature))
-    .map(byte => byte.toString(16).padStart(2, "0"))
-    .join("");
-
-  return timingSafeEqual(computed, hmac);
-}
-
-function timingSafeEqual(a, b) {
-  if (a.length !== b.length) return false;
-
-  let result = 0;
-
-  for (let i = 0; i < a.length; i++) {
-    result |= a.charCodeAt(i) ^ b.charCodeAt(i);
-  }
-
-  return result === 0;
-}
+import { isAuthorizedAdminRequest } from "../../utils/adminAuth.js";
 
 function renderAdminPage() {
   const nonce = crypto.getRandomValues(new Uint8Array(16)).reduce((acc, byte) => acc + byte.toString(16).padStart(2, '0'), '');
@@ -315,7 +264,7 @@ function renderAdminPage() {
 }
 
 export async function handleAdminPage(request, env) {
-  if (!(await isAuthorized(request, env))) {
+  if (!(await isAuthorizedAdminRequest(request, env))) {
     return new Response("Unauthorized", { status: 401 });
   }
 
@@ -323,7 +272,7 @@ export async function handleAdminPage(request, env) {
 }
 
 export async function handleAdminInvoices(request, env) {
-  if (!(await isAuthorized(request, env))) {
+  if (!(await isAuthorizedAdminRequest(request, env))) {
     return json({ error: "Unauthorized" }, 401);
   }
 
