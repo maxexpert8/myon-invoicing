@@ -1,14 +1,4 @@
-function timingSafeEqual(a, b) {
-  if (a.length !== b.length) return false;
-
-  let result = 0;
-
-  for (let i = 0; i < a.length; i++) {
-    result |= a.charCodeAt(i) ^ b.charCodeAt(i);
-  }
-
-  return result === 0;
-}
+import { timingSafeEqual, verifyHmacSha256Hex } from "./security.js";
 
 function buildShopifyHmacMessage(url) {
   const params = new URLSearchParams(url.search);
@@ -29,26 +19,11 @@ async function verifyShopifyAdminHmac(request, env) {
     return false;
   }
 
-  const encoder = new TextEncoder();
-  const key = await crypto.subtle.importKey(
-    "raw",
-    encoder.encode(String(env.SHOPIFY_APP_SECRET).trim()),
-    { name: "HMAC", hash: "SHA-256" },
-    false,
-    ["sign"]
-  );
-
-  const signature = await crypto.subtle.sign(
-    "HMAC",
-    key,
-    encoder.encode(buildShopifyHmacMessage(url))
-  );
-
-  const computed = Array.from(new Uint8Array(signature))
-    .map(byte => byte.toString(16).padStart(2, "0"))
-    .join("");
-
-  return timingSafeEqual(computed, hmac);
+  return await verifyHmacSha256Hex({
+    secret: env.SHOPIFY_APP_SECRET,
+    payload: buildShopifyHmacMessage(url),
+    signature: hmac
+  });
 }
 
 export function verifyManualSecret(request, env) {

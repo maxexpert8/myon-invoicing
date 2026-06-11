@@ -1,4 +1,5 @@
 import { json } from "../utils/response.js";
+import { verifyHmacSha256Base64 } from "../utils/security.js";
 
 import {
   getInvoiceByOrderNumber,
@@ -52,41 +53,13 @@ function taxTitleWithoutRate(title) {
 }
 
 async function verifyShopifyWebhook(request, rawBodyBuffer, secret) {
-  const provided = request.headers.get("x-shopify-hmac-sha256");
-
-  if (!provided || !secret) {
-    return false;
-  }
-
-  const encoder = new TextEncoder();
-  const key = await crypto.subtle.importKey(
-    "raw",
-    encoder.encode(String(secret).trim()),
-    { name: "HMAC", hash: "SHA-256" },
-    false,
-    ["sign"]
-  );
-  const signature = await crypto.subtle.sign(
-    "HMAC",
-    key,
-    rawBodyBuffer
-  );
-  const computed = btoa(String.fromCharCode(...new Uint8Array(signature)));
-
-  return timingSafeEqual(computed, provided);
+  return await verifyHmacSha256Base64({
+    secret,
+    payload: rawBodyBuffer,
+    signature: request.headers.get("x-shopify-hmac-sha256")
+  });
 }
 
-function timingSafeEqual(a, b) {
-  if (a.length !== b.length) return false;
-
-  let result = 0;
-
-  for (let i = 0; i < a.length; i++) {
-    result |= a.charCodeAt(i) ^ b.charCodeAt(i);
-  }
-
-  return result === 0;
-}
 
 function normalizeWebhookOrder(order, invoiceNumber, invoiceSequence) {
   const orderNumber = Number(String(order.name || "").replace("#", ""));
