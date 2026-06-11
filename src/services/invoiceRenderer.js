@@ -436,6 +436,7 @@ export function renderInvoiceHtml(data) {
           <p class="inv-p-5"><strong class="inv-highlight">Rechnungsnummer:</strong> ${escapeHtml(data.invoiceNumber)}</p>
           <p class="inv-p-5"><strong class="inv-highlight">Bestellnummer:</strong> #${escapeHtml(data.orderNumber)}</p>
           <p class="inv-p-5"><strong class="inv-highlight">Bestelldatum:</strong> ${formatGermanDate(data.issuedAt)}</p>
+          <p class="inv-p-5"><strong class="inv-highlight">Datum der Rechnungserstellung:</strong> ${formatGermanDate(data.invoiceCreatedAt || data.invoiceDate || data.createdAt || data.issuedAt)}</p>
         </div>
       </div>
 

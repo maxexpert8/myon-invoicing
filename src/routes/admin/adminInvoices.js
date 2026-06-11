@@ -146,7 +146,12 @@ function renderAdminPage() {
         return;
       }
 
-      rows.innerHTML = data.invoices.map(inv => \`
+      rows.innerHTML = data.invoices.map(inv => {
+        const invoiceUrl = inv.download_token
+          ? '/invoice-download?token=' + encodeURIComponent(inv.download_token)
+          : inv.pdf_url;
+
+        return \`
         <tr>
           <td><input type="checkbox" class="invoice-check" value="\${inv.invoice_number}"></td>
           <td>#\${inv.shopify_order_number}</td>
@@ -159,11 +164,12 @@ function renderAdminPage() {
           <td>\${inv.issued_at || ''}</td>
           <td>\${inv.status || ''}</td>
           <td>
-            <a class="button" href="\${inv.pdf_url}" target="_blank">Download</a>
-            <a class="button" href="\${inv.pdf_url}" target="_blank">Print</a>
+            <a class="button" href="\${invoiceUrl}" target="_blank">Download</a>
+            <a class="button" href="\${invoiceUrl}" target="_blank">Print</a>
           </td>
         </tr>
-      \`).join('');
+        \`;
+      }).join('');
 
       const stats = document.getElementById('stats');
 
@@ -322,7 +328,8 @@ export async function handleAdminInvoices(request, env) {
       created_at,
       customer_name,
       customer_email,
-      total_amount
+      total_amount,
+      download_token
     FROM invoice_registry
     WHERE shopify_order_number >= 1050
     ORDER BY shopify_order_number DESC

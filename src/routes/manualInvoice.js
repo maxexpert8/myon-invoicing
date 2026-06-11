@@ -2,7 +2,8 @@ import { json } from "../utils/response.js";
 
 import {
   getInvoiceByOrderNumber,
-  createInvoiceRegistryRecord
+  createInvoiceRegistryRecord,
+  allocateInvoiceSequence
 } from "../services/invoiceRegistry.js";
 
 import { renderInvoiceHtml }
@@ -38,8 +39,15 @@ export async function handleManualInvoice(
       });
     }
 
-    const invoiceSequence =
-      Number(body.invoice_sequence || 10001);
+    const invoiceSequence = body.invoice_sequence
+      ? Number(body.invoice_sequence)
+      : await allocateInvoiceSequence(env);
+
+    if (!invoiceSequence) {
+      return json({
+        error: "Invalid invoice_sequence"
+      }, 400);
+    }
 
     const invoiceNumber =
       `${env.INVOICE_PREFIX}${invoiceSequence}`;

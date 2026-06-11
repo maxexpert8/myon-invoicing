@@ -9,6 +9,15 @@ export async function getInvoiceByOrderNumber(env, orderNumber) {
     .first();
 }
 
+export function generateDownloadToken() {
+  const bytes = new Uint8Array(32);
+  crypto.getRandomValues(bytes);
+
+  return Array.from(bytes)
+    .map(byte => byte.toString(16).padStart(2, "0"))
+    .join("");
+}
+
 export async function createInvoiceRegistryRecord(
   env,
   {
@@ -21,7 +30,8 @@ export async function createInvoiceRegistryRecord(
     issuedAt,
     customerName = null,
     customerEmail = null,
-    totalAmount = null
+    totalAmount = null,
+    downloadToken = generateDownloadToken()
   }
 ) {
   return await env.DB.prepare(`
@@ -36,9 +46,10 @@ export async function createInvoiceRegistryRecord(
       issued_at,
       customer_name,
       customer_email,
-      total_amount
+      total_amount,
+      download_token
     )
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `)
     .bind(
       shopifyOrderId,
@@ -51,17 +62,19 @@ export async function createInvoiceRegistryRecord(
       issuedAt,
       customerName,
       customerEmail,
-      totalAmount
+      totalAmount,
+      downloadToken
     )
     .run();
 }
 
-export async function getNextInvoiceSequence(env) {
+export async function allocateInvoiceSequence(env) {
   const row = await env.DB.prepare(`
-    SELECT next_number
-    FROM invoice_counter
+    UPDATE invoice_counter
+    SET next_number = next_number + 1,
+        updated_at = CURRENT_TIMESTAMP
     WHERE key = ?
-    LIMIT 1
+    RETURNING next_number - 1 AS invoice_sequence
   `)
     .bind("MYONS_MAIN")
     .first();
@@ -70,16 +83,5 @@ export async function getNextInvoiceSequence(env) {
     throw new Error("Missing invoice_counter row for MYONS_MAIN");
   }
 
-  return Number(row.next_number);
-}
-
-export async function incrementInvoiceCounter(env) {
-  return await env.DB.prepare(`
-    UPDATE invoice_counter
-    SET next_number = next_number + 1,
-        updated_at = CURRENT_TIMESTAMP
-    WHERE key = ?
-  `)
-    .bind("MYONS_MAIN")
-    .run();
+  return Number(row.invoice_sequence);
 }

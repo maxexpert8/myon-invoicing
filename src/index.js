@@ -48,18 +48,6 @@ export default {
       return await handleInvoiceDownload(request, env);
     }
 
-    if (url.pathname === "/migration/backfill-pdfs" && request.method === "POST") {
-      return await handleBackfillPdfs(request, env);
-    }
-
-    if (url.pathname === "/migration/regenerate-files" && request.method === "POST") {
-      return await handleRegenerateFiles(request, env);
-    }
-
-    if (url.pathname === "/migration/backfill-admin-fields" && request.method === "POST") {
-      return await handleBackfillAdminFields(request, env);
-    }
-
     if (url.pathname === "/admin" && request.method === "GET") {
       return await handleAdminPage(request, env);
     }
@@ -85,6 +73,16 @@ export default {
         error:
           "Method Not Allowed"
       }, 405);
+    }
+
+    if (
+      url.pathname ===
+      "/webhooks/orders-create"
+    ) {
+      return await handleShopifyWebhook(
+        request,
+        env
+      );
     }
 
     const auth =
@@ -120,14 +118,16 @@ export default {
       );
     }
 
-    if (
-      url.pathname ===
-      "/webhooks/orders-create"
-    ) {
-      return await handleShopifyWebhook(
-        request,
-        env
-      );
+    if (url.pathname === "/migration/backfill-pdfs") {
+      return await handleBackfillPdfs(request, env);
+    }
+
+    if (url.pathname === "/migration/regenerate-files") {
+      return await handleRegenerateFiles(request, env);
+    }
+
+    if (url.pathname === "/migration/backfill-admin-fields") {
+      return await handleBackfillAdminFields(request, env);
     }
 
     return json({

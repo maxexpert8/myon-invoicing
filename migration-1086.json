@@ -1,4 +1,0 @@
-{
-    "starting_invoice_sequence": 10034,
-    "csv": "Name,Email,Subtotal,Taxes,Total,Created at,Lineitem quantity,Lineitem name,Lineitem price,Billing Name,Billing Address1,Billing Address2,Billing Company,Billing City,Billing Zip,Billing Country,Payment Method,Id,Tax 1 Name,Tax 1 Value\n#1086,karinawagner7@web.de,29.99,4.79,29.99,2026-06-04 10:36:23 +0200,1,Digitale Begleitung von Dr. Franziska Rubin,29.99,Karina Wagner,Benneckenrode 32,,,Thale,06502,DE,PayPal Express Checkout,12793278628171,DE MwSt 19%,4.79\n"
-}

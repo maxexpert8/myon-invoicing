@@ -3,8 +3,7 @@ import { json } from "../utils/response.js";
 import {
   getInvoiceByOrderNumber,
   createInvoiceRegistryRecord,
-  getNextInvoiceSequence,
-  incrementInvoiceCounter
+  allocateInvoiceSequence
 } from "../services/invoiceRegistry.js";
 
 import { renderInvoiceHtml } from "../services/invoiceRenderer.js";
@@ -155,6 +154,7 @@ function normalizeWebhookOrder(order, invoiceNumber, invoiceSequence) {
     invoiceSequence,
     invoiceNumber,
     issuedAt: order.processed_at || order.created_at || new Date().toISOString(),
+    invoiceCreatedAt: new Date().toISOString(),
 
     customerName: billing.name || `${order.customer?.first_name || ""} ${order.customer?.last_name || ""}`.trim(),
     customerFullName: billing.name || "",
@@ -251,7 +251,7 @@ export async function handleShopifyWebhook(request, env) {
       });
     }
 
-    const invoiceSequence = await getNextInvoiceSequence(env);
+    const invoiceSequence = await allocateInvoiceSequence(env);
     const invoiceNumber = `${env.INVOICE_PREFIX}${invoiceSequence}`;
 
     const invoiceData = normalizeWebhookOrder(
@@ -293,8 +293,6 @@ export async function handleShopifyWebhook(request, env) {
       customerEmail: invoiceData.customerEmail || null,
       totalAmount: invoiceData.totalGross || null
     });
-
-    await incrementInvoiceCounter(env);
 
     return json({
       success: true,

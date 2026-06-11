@@ -4,12 +4,73 @@ import productImages from "../../../products_images.json";
 import {
   getInvoiceByOrderNumber,
   createInvoiceRegistryRecord,
-  getNextInvoiceSequence,
-  incrementInvoiceCounter
+  allocateInvoiceSequence
 } from "../../services/invoiceRegistry.js";
 
 import { renderInvoiceHtml } from "../../services/invoiceRenderer.js";
 import { uploadInvoicePdf } from "../../services/pdfRenderer.js";
+
+function timingSafeEqual(a, b) {
+  if (a.length !== b.length) return false;
+
+  let result = 0;
+
+  for (let i = 0; i < a.length; i++) {
+    result |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  }
+
+  return result === 0;
+}
+
+async function isAuthorized(request, env) {
+  const manualSecret = request.headers.get("x-manual-secret");
+
+  if (
+    manualSecret &&
+    env.MANUAL_SECRET &&
+    timingSafeEqual(manualSecret, env.MANUAL_SECRET)
+  ) {
+    return true;
+  }
+
+  const url = new URL(request.url);
+  const hmac = url.searchParams.get("hmac");
+
+  if (!hmac || !env.SHOPIFY_WEBHOOK_SECRET) {
+    return false;
+  }
+
+  const params = new URLSearchParams(url.search);
+  params.delete("hmac");
+  params.delete("signature");
+
+  const message = Array.from(params.entries())
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([key, value]) => `${key}=${value}`)
+    .join("&");
+
+  const encoder = new TextEncoder();
+
+  const key = await crypto.subtle.importKey(
+    "raw",
+    encoder.encode(env.SHOPIFY_WEBHOOK_SECRET),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"]
+  );
+
+  const signature = await crypto.subtle.sign(
+    "HMAC",
+    key,
+    encoder.encode(message)
+  );
+
+  const computed = Array.from(new Uint8Array(signature))
+    .map(byte => byte.toString(16).padStart(2, "0"))
+    .join("");
+
+  return timingSafeEqual(computed, hmac);
+}
 
 async function fetchRecentPaidOrders(env) {
   const response = await fetch(
@@ -68,7 +129,7 @@ function normalizeOrder(order, invoiceNumber, invoiceSequence) {
     const lineNet = money(Number(lineGross) - Number(taxAmount));
 
     return {
-      productImage: productImages[line.title || line.name] || "",
+      productImage: productImages[line.title || line.name] || line.image || "",
       productName: line.title || line.name || "Produkt",
       quantity,
       taxTitle: String(taxLine.title || "").replace(/\s*\d+(?:[.,]\d+)?%/g, "").trim(),
@@ -108,6 +169,7 @@ function normalizeOrder(order, invoiceNumber, invoiceSequence) {
     invoiceSequence,
     invoiceNumber,
     issuedAt: order.processed_at || order.created_at || new Date().toISOString(),
+    invoiceCreatedAt: new Date().toISOString(),
 
     customerName: billing.name || `${order.customer?.first_name || ""} ${order.customer?.last_name || ""}`.trim(),
     customerFullName: billing.name || "",
@@ -136,6 +198,10 @@ function normalizeOrder(order, invoiceNumber, invoiceSequence) {
 }
 
 export async function handleAdminCreateMissingInvoices(request, env) {
+  if (!(await isAuthorized(request, env))) {
+    return json({ error: "Unauthorized" }, 401);
+  }
+
   try {
     const orders = await fetchRecentPaidOrders(env);
     const results = [];
@@ -156,7 +222,7 @@ export async function handleAdminCreateMissingInvoices(request, env) {
         continue;
       }
 
-      const invoiceSequence = await getNextInvoiceSequence(env);
+      const invoiceSequence = await allocateInvoiceSequence(env);
       const invoiceNumber = `${env.INVOICE_PREFIX}${invoiceSequence}`;
 
       const invoiceData = normalizeOrder(order, invoiceNumber, invoiceSequence);
@@ -188,8 +254,6 @@ export async function handleAdminCreateMissingInvoices(request, env) {
         customerEmail: invoiceData.customerEmail || null,
         totalAmount: invoiceData.totalGross || null
       });
-
-      await incrementInvoiceCounter(env);
 
       results.push({
         order_number: orderNumber,
