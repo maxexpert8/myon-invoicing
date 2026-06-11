@@ -23,6 +23,12 @@ export async function handleInvoiceDownload(
     );
   }
 
+  if (!/^[a-f0-9]{64}$/i.test(token)) {
+    return new Response(
+      "Invoice not found",
+      { status: 404 }
+    );
+  }
   const invoice = await env.DB.prepare(`
     SELECT invoice_number, pdf_key, pdf_url, download_token
     FROM invoice_registry
@@ -64,7 +70,7 @@ export async function handleInvoiceDownload(
         "content-type": "application/pdf",
         "content-disposition":
           `inline; filename="${invoice.invoice_number}.pdf"`,
-        "cache-control": "private, max-age=300"
+        "cache-control": "private, no-store"
       }
     }
   );

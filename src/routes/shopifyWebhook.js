@@ -48,12 +48,10 @@ function extractRateFromTaxLine(taxLine) {
 }
 
 function taxTitleWithoutRate(title) {
-  return clean(title)
-    .replace(/\s*\d+(?:[.,]\d+)?%/g, "")
-    .trim();
+  return clean(title).replace(/\s*\d+(?:[.,]\d+)?%/g, "").trim();
 }
 
-async function verifyShopifyWebhook(request, rawBody, secret) {
+async function verifyShopifyWebhook(request, rawBodyBuffer, secret) {
   const provided = request.headers.get("x-shopify-hmac-sha256");
 
   if (!provided || !secret) {
@@ -61,24 +59,28 @@ async function verifyShopifyWebhook(request, rawBody, secret) {
   }
 
   const encoder = new TextEncoder();
-
   const key = await crypto.subtle.importKey(
     "raw",
-    encoder.encode(secret),
+    encoder.encode(secret).trim(),
     { name: "HMAC", hash: "SHA-256" },
     false,
     ["sign"]
   );
-
   const signature = await crypto.subtle.sign(
     "HMAC",
     key,
-    encoder.encode(rawBody)
+    rawBodyBuffer
   );
+  const computed = btoa(String.fromCharCode(...new Uint8Array(signature)));
 
-  const computed = btoa(
-    String.fromCharCode(...new Uint8Array(signature))
-  );
+  console.log("Shopify webhook HMAC comparison", {
+    computedLength: computed.length,
+    providedLength: provided.length,
+    computedStart: computed.slice(0, 6),
+    providedStart: provided.slice(0, 6),
+    computedEnd: computed.slice(-6),
+    providedEnd: provided.slice(-6)
+  });
 
   return timingSafeEqual(computed, provided);
 }
@@ -188,23 +190,29 @@ function normalizeWebhookOrder(order, invoiceNumber, invoiceSequence) {
 
 export async function handleShopifyWebhook(request, env) {
   try {
-    const rawBody = await request.text();
-
+    const rawBodyBuffer = await request.arrayBuffer();
     const isValid = await verifyShopifyWebhook(
       request,
-      rawBody,
+      rawBodyBuffer,
       env.SHOPIFY_WEBHOOK_SECRET
     );
 
     if (!isValid) {
+      console.log("Shopify webhook rejected: invalid signature", {
+        providedLength: request.headers.get("x-shopify-hmac-sha256")?.length || 0,
+        topic: request.headers.get("x-shopify-topic"),
+        webhookId: request.headers.get("x-shopify-webhook-id") || request.headers.get("x-shopify-event-id"),
+        isTest: request.headers.get("x-shopify-test") === "true",
+        hasHmac: Boolean(request.headers.get("x-shopify-hmac-sha256")),
+        hasSecret: Boolean(env.SHOPIFY_WEBHOOK_SECRET)
+      });
+
       return json({ error: "Invalid Shopify webhook signature" }, 401);
     }
 
+    const rawBody = new TextDecoder().decode(rawBodyBuffer);
     const topic = request.headers.get("x-shopify-topic");
-    const webhookId =
-      request.headers.get("x-shopify-webhook-id") ||
-      request.headers.get("x-shopify-event-id");
-
+    const webhookId = request.headers.get("x-shopify-webhook-id") || request.headers.get("x-shopify-event-id");
     const order = JSON.parse(rawBody);
     const orderNumber = Number(String(order.name || "").replace("#", ""));
 
@@ -212,14 +220,23 @@ export async function handleShopifyWebhook(request, env) {
       return json({ error: "Missing Shopify order number" }, 400);
     }
 
-    const isDryRun =
-      request.headers.get("x-shopify-test") === "true" ||
-      order.test === true;
+    const isDryRun = request.headers.get("x-shopify-test") === "true" || order.test === true;
+    const financialStatus = String(order.financial_status || "").toLowerCase();
 
-    const financialStatus =
-      String(order.financial_status || "").toLowerCase();
+    console.log("Shopify webhook received", {
+      topic,
+      webhookId,
+      orderNumber,
+      isDryRun,
+      financialStatus
+    });
 
     if (isDryRun) {
+      console.log("Shopify webhook dry-run skipped", {
+        topic,
+        orderNumber,
+        financialStatus
+      });
       return json({
         success: true,
         dry_run: true,
@@ -231,6 +248,11 @@ export async function handleShopifyWebhook(request, env) {
     }
 
     if (financialStatus !== "paid") {
+      console.log("Shopify webhook unpaid skipped", {
+        topic,
+        orderNumber,
+        financialStatus
+      });
       return json({
         success: true,
         skipped: true,
@@ -260,6 +282,12 @@ export async function handleShopifyWebhook(request, env) {
         error: "Missing invoice queue binding"
       }, 500);
     }
+
+    console.log("Shopify webhook queueing invoice", {
+      topic,
+      webhookId,
+      orderNumber
+    });
 
     await env.INVOICE_QUEUE.send({
       order,

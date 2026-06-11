@@ -25,14 +25,14 @@ async function verifyShopifyAdminHmac(request, env) {
   const url = new URL(request.url);
   const hmac = url.searchParams.get("hmac");
 
-  if (!hmac || !env.SHOPIFY_WEBHOOK_SECRET) {
+  if (!hmac || !env.SHOPIFY_APP_SECRET) {
     return false;
   }
 
   const encoder = new TextEncoder();
   const key = await crypto.subtle.importKey(
     "raw",
-    encoder.encode(env.SHOPIFY_WEBHOOK_SECRET),
+    encoder.encode(String(env.SHOPIFY_APP_SECRET).trim()),
     { name: "HMAC", hash: "SHA-256" },
     false,
     ["sign"]

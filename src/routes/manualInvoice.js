@@ -9,26 +9,21 @@ import {
 import { renderInvoiceHtml }
   from "../services/invoiceRenderer.js";
 
+import { uploadInvoicePdf } from "../services/pdfRenderer.js";
+
 export async function handleManualInvoice(
   request,
   env
 ) {
   try {
     const body = await request.json();
-
     const orderNumber = Number(body.order_number);
 
     if (!orderNumber) {
-      return json({
-        error: "Missing order_number"
-      }, 400);
+      return json({ error: "Missing order_number" }, 400);
     }
 
-    const existing =
-      await getInvoiceByOrderNumber(
-        env,
-        orderNumber
-      );
+    const existing = await getInvoiceByOrderNumber( env, orderNumber );
 
     if (existing) {
       return json({
@@ -39,9 +34,7 @@ export async function handleManualInvoice(
       });
     }
 
-    const invoiceSequence = body.invoice_sequence
-      ? Number(body.invoice_sequence)
-      : await allocateInvoiceSequence(env);
+    const invoiceSequence = body.invoice_sequence ? Number(body.invoice_sequence) : await allocateInvoiceSequence(env);
 
     if (!invoiceSequence) {
       return json({
@@ -49,100 +42,37 @@ export async function handleManualInvoice(
       }, 400);
     }
 
-    const invoiceNumber =
-      `${env.INVOICE_PREFIX}${invoiceSequence}`;
-
-    const issuedAt =
-      body.issued_at ||
-      new Date().toISOString();
-
-    const invoiceHtml =
-      renderInvoiceHtml({
-        orderNumber,
-        invoiceNumber,
-        issuedAt,
-
-        customerName:
-          body.customer_name || "Test Customer",
-
-        customerEmail:
-          body.customer_email || "",
-
-        billingAddress:
-          body.billing_address || "",
-
-        billingName:
-          body.billingName || "",
-
-        billingCompany:
-          body.billingCompany || "",
-
-        billingAddress1:
-          body.billingAddress1 || "",
-
-        billingAddress2:
-          body.billingAddress2 || "",
-
-        billingCity:
-          body.billingCity || "",
-
-        billingZip:
-          body.billingZip || "",
-
-        billingCountry:
-          body.billingCountry || "",
-
-        billingCountryName:
-          body.billingCountryName || "",
-
-        customerFullName:
-          body.customerFullName || "",
-
-        primaryTaxTitle:
-          body.primaryTaxTitle || "",
-
-        paymentMethod:
-          body.payment_method ||
-          "Shopify Payments",
-
-        items:
-          Array.isArray(body.items)
-            ? body.items
-            : [],
-
-        vatSummary:
-          Array.isArray(body.vatSummary)
-            ? body.vatSummary
-            : [],
-
-        totalGross:
-          body.totalGross ||
-          body.total_gross ||
-          "0.00",
-
-        totalNet:
-          body.totalNet ||
-          body.total_net ||
-          "0.00",
-
-        vatAmount:
-          body.vatAmount ||
-          body.vat_amount ||
-          "0.00",
-
-        vatRate:
-          body.vatRate ||
-          body.vat_rate ||
-          "19%",
-
-        outstandingAmount:
-          body.outstandingAmount ||
-          body.outstanding_amount ||
-          "0.00"
-      });
-
-    const fileName =
-      `invoices/${invoiceNumber}.html`;
+    const invoiceNumber = `${env.INVOICE_PREFIX}${invoiceSequence}`;
+    const issuedAt = body.issued_at || new Date().toISOString();
+    const invoiceCreatedAt = new Date().toISOString();
+    const invoiceHtml = renderInvoiceHtml({
+      orderNumber,
+      invoiceNumber,
+      issuedAt,
+      invoiceCreatedAt,
+      customerName: body.customer_name || "Test Customer",
+      customerEmail: body.customer_email || "",
+      billingAddress: body.billing_address || "",
+      billingName: body.billingName || "",
+      billingCompany: body.billingCompany || "",
+      billingAddress1: body.billingAddress1 || "",
+      billingAddress2: body.billingAddress2 || "",
+      billingCity: body.billingCity || "",
+      billingZip: body.billingZip || "",
+      billingCountry: body.billingCountry || "",
+      billingCountryName: body.billingCountryName || "",
+      customerFullName: body.customerFullName || "",
+      primaryTaxTitle: body.primaryTaxTitle || "",
+      paymentMethod: body.payment_method || "Shopify Payments",
+      items: Array.isArray(body.items) ? body.items : [],
+      vatSummary: Array.isArray(body.vatSummary) ? body.vatSummary : [],
+      totalGross: body.totalGross || body.total_gross || "0.00",
+      totalNet: body.totalNet || body.total_net || "0.00",
+      vatAmount: body.vatAmount || body.vat_amount || "0.00",
+      vatRate: body.vatRate || body.vat_rate || "19%",
+      outstandingAmount: body.outstandingAmount || body.outstanding_amount || "0.00"
+    });
+    const fileName = `invoices/${invoiceNumber}.html`;
 
     await env.INVOICES.put(
       fileName,
@@ -150,44 +80,28 @@ export async function handleManualInvoice(
       {
         httpMetadata: {
           contentType:
-            "text/html; charset=utf-8"
+            "text/html; charset=utf-8",
+          contentDisposition:
+            `inline; filename="${invoiceNumber}.html"`
         }
       }
     );
 
+    const pdfResult = await uploadInvoicePdf(env, { invoiceNumber, invoiceHtml });
+
     await createInvoiceRegistryRecord(
       env,
       {
-        shopifyOrderId:
-          body.shopify_order_id ||
-          `manual-${orderNumber}`,
-
+        shopifyOrderId: body.shopify_order_id || `manual-${orderNumber}`,
         orderNumber,
-
         invoiceSequence,
-
         invoiceNumber,
-
-        pdfKey: fileName,
-
+        pdfKey: pdfResult.pdfKey,
         source: "manual",
-
         issuedAt,
-
-        customerName:
-          body.customer_name ||
-          body.customerFullName ||
-          body.billingName ||
-          null,
-
-        customerEmail:
-          body.customer_email ||
-          null,
-
-        totalAmount:
-          body.totalGross ||
-          body.total_gross ||
-          null
+        customerName: body.customer_name || body.customerFullName || body.billingName || null,
+        customerEmail: body.customer_email || null,
+        totalAmount: body.totalGross || body.total_gross || null
       }
     );
 
@@ -196,7 +110,8 @@ export async function handleManualInvoice(
       order_number: orderNumber,
       invoice_sequence: invoiceSequence,
       invoice_number: invoiceNumber,
-      file_url: fileName
+      file_url: pdfResult.pdfKey,
+      html_file_url: fileName
     });
 
   } catch (error) {
