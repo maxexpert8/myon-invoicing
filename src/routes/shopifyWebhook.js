@@ -92,8 +92,11 @@ function normalizeWebhookOrder(order, invoiceNumber, invoiceSequence) {
   const orderNumber = Number(String(order.name || "").replace("#", ""));
   const billing = order.billing_address || {};
 
-  const items = (order.line_items || []).map(line => {
-    const taxLine = line.tax_lines?.[0] || {};
+  const lineItems = Array.isArray(order.line_items) ? order.line_items.slice(0, 100) : [];
+
+  const items = lineItems.map(line => {
+    const taxLines = Array.isArray(line.tax_lines) ? line.tax_lines : [];
+    const taxLine = taxLines[0] || {};
     const taxRate = extractRateFromTaxLine(taxLine);
     const taxFullTitle = clean(taxLine.title) || `MwSt ${taxRate}`;
     const taxTitle = taxTitleWithoutRate(taxFullTitle);
@@ -204,7 +207,31 @@ export async function handleShopifyWebhook(request, env) {
     const rawBody = new TextDecoder().decode(rawBodyBuffer);
     const topic = request.headers.get("x-shopify-topic");
     const webhookId = request.headers.get("x-shopify-webhook-id") || request.headers.get("x-shopify-event-id");
-    const order = JSON.parse(rawBody);
+    
+    let order;
+
+    try {
+      order = JSON.parse(rawBody);
+    } catch (error) {
+      console.warn("Shopify webhook rejected: malformed JSON", {
+        message: error?.message,
+        topic: request.headers.get("x-shopify-topic"),
+        webhookId:
+          request.headers.get("x-shopify-webhook-id") ||
+          request.headers.get("x-shopify-event-id")
+      });
+
+      return json({
+        error: "Malformed Shopify webhook JSON"
+      }, 400);
+    }
+    
+    if (!order || typeof order !== "object" || Array.isArray(order)) {
+      return json({
+        error: "Invalid Shopify webhook payload"
+      }, 400);
+    }
+
     const orderNumber = Number(String(order.name || "").replace("#", ""));
 
     if (!orderNumber) {

@@ -5,7 +5,6 @@ export function json(data, status = 200) {
       status,
       headers: {
         "content-type": "application/json",
-        "access-control-allow-origin": "*",
         "access-control-allow-methods": "GET, POST, OPTIONS",
         "access-control-allow-headers": "content-type"
       }

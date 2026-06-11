@@ -48,6 +48,27 @@ function corsHeadersForRequest(request) {
   };
 }
 
+function withCors(response, request) {
+  const corsHeaders = corsHeadersForRequest(request);
+
+  if (!corsHeaders) {
+    return response;
+  }
+
+  const headers = new Headers(response.headers);
+
+  headers.set("access-control-allow-origin", corsHeaders["access-control-allow-origin"]);
+  headers.set("access-control-allow-methods", corsHeaders["access-control-allow-methods"]);
+  headers.set("access-control-allow-headers", corsHeaders["access-control-allow-headers"]);
+  headers.set("vary", "Origin");
+
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers
+  });
+}
+
 const publicRoutes = {
   "GET /invoice-link": handleInvoiceLink,
   "GET /invoice-download": handleInvoiceDownload,
@@ -90,26 +111,26 @@ export default {
         });
       }
       if (publicRoutes[routeKey]) {
-        return await publicRoutes[routeKey](request, env);
+        return withCors(await publicRoutes[routeKey](request, env), request);
       }
       if (adminRoutes[routeKey]) {
-        return await adminRoutes[routeKey](request, env);
+        return withCors(await adminRoutes[routeKey](request, env), request);
       }
       if (webhookRoutes[routeKey]) {
-        return await webhookRoutes[routeKey](request, env);
+        return withCors(await webhookRoutes[routeKey](request, env), request);
       }
       if (manualSecretRoutes[routeKey]) {
         if (!verifyManualSecret(request, env)) {
-          return json({ error: "Unauthorized" }, 401);
+          return withCors(json({ error: "Unauthorized" }, 401), request);
         }
         if (url.pathname.startsWith("/migration/") && env.ALLOW_MIGRATION_ROUTES !== "true") {
-          return json({ error: "Migration routes are disabled" }, 403);
+          return withCors(json({ error: "Migration routes are disabled" }, 403), request);
         }
 
-        return await manualSecretRoutes[routeKey](request, env);
+        return withCors(await manualSecretRoutes[routeKey](request, env), request);
       }
 
-      return json({ error: "Not Found" }, 404);
+      return withCors(json({ error: "Not Found" }, 404), request);
     } catch (error) {
       console.error("Unhandled Worker fetch error", {
         message: error?.message,
@@ -119,9 +140,9 @@ export default {
         url: request?.url
       });
 
-      return json({
+      return withCors(json({
         error: "Internal Server Error"
-      }, 500);
+      }, 500), request);
     }
   },
 
