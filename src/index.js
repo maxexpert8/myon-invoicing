@@ -27,115 +27,88 @@ import { handleAdminReconcile } from "./routes/admin/adminReconcile.js";
 
 import { handleAdminCreateMissingInvoices } from "./routes/admin/adminCreateMissingInvoices.js";
 
+const allowedCorsOrigins = new Set([
+  "https://shop.myon.clinic",
+  "https://366cba-31.myshopify.com",
+  "https://admin.shopify.com"
+]);
+
+function corsHeadersForRequest(request) {
+  const origin = request.headers.get("origin");
+
+  if (!origin || !allowedCorsOrigins.has(origin)) {
+    return null;
+  }
+
+  return {
+    "access-control-allow-origin": origin,
+    "access-control-allow-methods": "GET, POST, OPTIONS",
+    "access-control-allow-headers": "content-type",
+    "access-control-max-age": "86400",
+    "vary": "Origin"
+  };
+}
+
+const publicRoutes = {
+  "GET /invoice-link": handleInvoiceLink,
+  "GET /invoice-download": handleInvoiceDownload,
+  "HEAD /invoice-download": handleInvoiceDownload
+};
+const adminRoutes = {
+  "GET /admin": handleAdminPage,
+  "GET /admin/invoices": handleAdminInvoices,
+  "POST /admin/download-zip": handleAdminDownloadZip,
+  "GET /admin/reconcile": handleAdminReconcile,
+  "POST /admin/create-missing-invoices": handleAdminCreateMissingInvoices
+};
+const webhookRoutes = {
+  "POST /webhooks/orders-create": handleShopifyWebhook
+};
+const manualSecretRoutes = {
+  "POST /manual-invoice": handleManualInvoice,
+  "POST /migration/import-csv": handleMigrationImportCsv,
+  "POST /migration/backfill-pdfs": handleBackfillPdfs,
+  "POST /migration/regenerate-files": handleRegenerateFiles,
+  "POST /migration/backfill-admin-fields": handleBackfillAdminFields
+};
+
 export default {
   async fetch(request, env) {
-
     const url = new URL(request.url);
+    const routeKey = `${request.method} ${url.pathname}`;
 
     if (request.method === "OPTIONS") {
+      const corsHeaders = corsHeadersForRequest(request);
+
+      if (!corsHeaders) {
+        return new Response(null, { status: 403 });
+      }
+
       return new Response(null, {
         status: 204,
-        headers: {
-          "access-control-allow-origin": "*",
-          "access-control-allow-methods": "GET, POST, OPTIONS",
-          "access-control-allow-headers": "content-type"
-        }
+        headers: corsHeaders
       });
     }
+    if (publicRoutes[routeKey]) {
+      return await publicRoutes[routeKey](request, env);
+    }
+    if (adminRoutes[routeKey]) {
+      return await adminRoutes[routeKey](request, env);
+    }
+    if (webhookRoutes[routeKey]) {
+      return await webhookRoutes[routeKey](request, env);
+    }
+    if (manualSecretRoutes[routeKey]) {
+      const auth = request.headers.get("x-manual-secret");
 
-    if (url.pathname === "/invoice-link" && request.method === "GET") {
-      return await handleInvoiceLink(request, env);
+      if (auth !== env.MANUAL_SECRET) {
+        return json({ error: "Unauthorized" }, 401);
+      }
+
+      return await manualSecretRoutes[routeKey](request, env);
     }
 
-    if ( url.pathname === "/invoice-download" && (request.method === "GET" || request.method === "HEAD") ) {
-      return await handleInvoiceDownload(request, env);
-    }
-
-    if (url.pathname === "/admin" && request.method === "GET") {
-      return await handleAdminPage(request, env);
-    }
-
-    if (url.pathname === "/admin/invoices" && request.method === "GET") {
-      return await handleAdminInvoices(request, env);
-    }
-
-    if (url.pathname === "/admin/download-zip" && request.method === "POST") {
-      return await handleAdminDownloadZip(request, env);
-    }
-
-    if (url.pathname === "/admin/reconcile" && request.method === "GET") {
-      return await handleAdminReconcile(request, env);
-    }
-
-    if (url.pathname === "/admin/create-missing-invoices" && request.method === "POST") {
-      return await handleAdminCreateMissingInvoices(request, env);
-    }
-
-    if (request.method !== "POST") {
-      return json({
-        error:
-          "Method Not Allowed"
-      }, 405);
-    }
-
-    if (
-      url.pathname ===
-      "/webhooks/orders-create"
-    ) {
-      return await handleShopifyWebhook(
-        request,
-        env
-      );
-    }
-
-    const auth =
-      request.headers.get(
-        "x-manual-secret"
-      );
-
-    if (
-      auth !== env.MANUAL_SECRET
-    ) {
-      return json({
-        error: "Unauthorized"
-      }, 401);
-    }
-
-    if (
-      url.pathname ===
-      "/manual-invoice"
-    ) {
-      return await handleManualInvoice(
-        request,
-        env
-      );
-    }
-
-    if (
-      url.pathname ===
-      "/migration/import-csv"
-    ) {
-      return await handleMigrationImportCsv(
-        request,
-        env
-      );
-    }
-
-    if (url.pathname === "/migration/backfill-pdfs") {
-      return await handleBackfillPdfs(request, env);
-    }
-
-    if (url.pathname === "/migration/regenerate-files") {
-      return await handleRegenerateFiles(request, env);
-    }
-
-    if (url.pathname === "/migration/backfill-admin-fields") {
-      return await handleBackfillAdminFields(request, env);
-    }
-
-    return json({
-      error: "Not Found"
-    }, 404);
+    return json({ error: "Not Found" }, 404);
   },
 
   async queue(batch, env) {

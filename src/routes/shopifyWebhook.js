@@ -73,15 +73,6 @@ async function verifyShopifyWebhook(request, rawBodyBuffer, secret) {
   );
   const computed = btoa(String.fromCharCode(...new Uint8Array(signature)));
 
-  console.log("Shopify webhook HMAC comparison", {
-    computedLength: computed.length,
-    providedLength: provided.length,
-    computedStart: computed.slice(0, 6),
-    providedStart: provided.slice(0, 6),
-    computedEnd: computed.slice(-6),
-    providedEnd: provided.slice(-6)
-  });
-
   return timingSafeEqual(computed, provided);
 }
 
