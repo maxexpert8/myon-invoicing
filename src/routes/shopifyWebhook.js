@@ -61,7 +61,7 @@ async function verifyShopifyWebhook(request, rawBodyBuffer, secret) {
   const encoder = new TextEncoder();
   const key = await crypto.subtle.importKey(
     "raw",
-    encoder.encode(secret).trim(),
+    encoder.encode(String(secret).trim()),
     { name: "HMAC", hash: "SHA-256" },
     false,
     ["sign"]
@@ -306,6 +306,11 @@ export async function handleShopifyWebhook(request, env) {
     }, 202);
 
   } catch (error) {
+    console.error("Shopify webhook failed", {
+      message: error?.message,
+      name: error?.name,
+      stack: error?.stack
+    });
     return json({
       error: "Shopify webhook failed",
       message: error.message
