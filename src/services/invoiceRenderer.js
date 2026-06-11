@@ -554,7 +554,7 @@ export function renderInvoiceHtml(data) {
       <div>
         <p class="inv-info-title">Bankdetails</p>
         <p class="inv-info-text">HypoVereinsbank</p>
-        <p class="inv-info-text">IBAN DE54 7002 0270 0037</p>
+        <p class="inv-info-text">IBAN DE54 7002 0270 0037 6579 64</p>
       </div>
     </div>
 

@@ -34,7 +34,7 @@ export async function handleManualInvoice(
       return json({
         message: "Invoice already exists",
         invoice_number: existing.invoice_number,
-        file_url: existing.pdf_url,
+        file_url: existing.pdf_key || existing.pdf_url,
         existing: true
       });
     }
@@ -155,9 +155,6 @@ export async function handleManualInvoice(
       }
     );
 
-    const fileUrl =
-      `${env.PUBLIC_BUCKET_URL}/${fileName}`;
-
     await createInvoiceRegistryRecord(
       env,
       {
@@ -171,7 +168,7 @@ export async function handleManualInvoice(
 
         invoiceNumber,
 
-        fileUrl,
+        pdfKey: fileName,
 
         source: "manual",
 
@@ -199,7 +196,7 @@ export async function handleManualInvoice(
       order_number: orderNumber,
       invoice_sequence: invoiceSequence,
       invoice_number: invoiceNumber,
-      file_url: fileUrl
+      file_url: fileName
     });
 
   } catch (error) {

@@ -134,10 +134,19 @@ function renderAdminPage() {
     </tbody>
   </table>
 
-  <script nonce="${nonce}">
-    async function loadInvoices() {
-      const res = await fetch('/admin/invoices' + window.location.search);
-      const data = await res.json();
+	  <script nonce="${nonce}">
+	    function escapeHtml(value) {
+	      return String(value ?? "")
+	        .replaceAll("&", "&amp;")
+	        .replaceAll("<", "&lt;")
+	        .replaceAll(">", "&gt;")
+	        .replaceAll('"', "&quot;")
+	        .replaceAll("'", "&#039;");
+	    }
+
+	    async function loadInvoices() {
+	      const res = await fetch('/admin/invoices' + window.location.search);
+	      const data = await res.json();
 
       const rows = document.getElementById('rows');
 
@@ -149,47 +158,47 @@ function renderAdminPage() {
       rows.innerHTML = data.invoices.map(inv => {
         const invoiceUrl = inv.download_token
           ? '/invoice-download?token=' + encodeURIComponent(inv.download_token)
-          : inv.pdf_url;
+          : '#';
 
-        return \`
-        <tr>
-          <td><input type="checkbox" class="invoice-check" value="\${inv.invoice_number}"></td>
-          <td>#\${inv.shopify_order_number}</td>
-          <td>
-            <div>\${inv.customer_name || '—'}</div>
-            <div class="muted">\${inv.customer_email || ''}</div>
-          </td>
-          <td class="amount">€\${Number(inv.total_amount || 0).toFixed(2)}</td>
-          <td>\${inv.invoice_number}</td>
-          <td>\${inv.issued_at || ''}</td>
-          <td>\${inv.status || ''}</td>
-          <td>
-            <a class="button" href="\${invoiceUrl}" target="_blank">Download</a>
-            <a class="button" href="\${invoiceUrl}" target="_blank">Print</a>
-          </td>
-        </tr>
-        \`;
+	        return \`
+	        <tr>
+	          <td><input type="checkbox" class="invoice-check" value="\${escapeHtml(inv.invoice_number)}"></td>
+	          <td>#\${escapeHtml(inv.shopify_order_number)}</td>
+	          <td>
+	            <div>\${escapeHtml(inv.customer_name || '—')}</div>
+	            <div class="muted">\${escapeHtml(inv.customer_email || '')}</div>
+	          </td>
+	          <td class="amount">€\${escapeHtml(Number(inv.total_amount || 0).toFixed(2))}</td>
+	          <td>\${escapeHtml(inv.invoice_number)}</td>
+	          <td>\${escapeHtml(inv.issued_at || '')}</td>
+	          <td>\${escapeHtml(inv.status || '')}</td>
+	          <td>
+	            <a class="button" href="\${escapeHtml(invoiceUrl)}" target="_blank" rel="noopener noreferrer">Download</a>
+	            <a class="button" href="\${escapeHtml(invoiceUrl)}" target="_blank" rel="noopener noreferrer">Print</a>
+	          </td>
+	        </tr>
+	        \`;
       }).join('');
 
       const stats = document.getElementById('stats');
 
       stats.innerHTML = \`
-      <div>
-          <div class="muted">Total invoices</div>
-          <strong>\${data.stats.total_invoices}</strong>
-      </div>
-      <div>
-          <div class="muted">Revenue</div>
-          <strong>€\${data.stats.total_revenue}</strong>
-      </div>
-      <div>
-          <div class="muted">Last order</div>
-          <strong>#\${data.stats.last_order_number}</strong>
-      </div>
-      <div>
-          <div class="muted">Last invoice</div>
-          <strong>\${data.stats.last_invoice_number}</strong>
-      </div>
+	      <div>
+	          <div class="muted">Total invoices</div>
+	          <strong>\${escapeHtml(data.stats.total_invoices)}</strong>
+	      </div>
+	      <div>
+	          <div class="muted">Revenue</div>
+	          <strong>€\${escapeHtml(data.stats.total_revenue)}</strong>
+	      </div>
+	      <div>
+	          <div class="muted">Last order</div>
+	          <strong>#\${escapeHtml(data.stats.last_order_number)}</strong>
+	      </div>
+	      <div>
+	          <div class="muted">Last invoice</div>
+	          <strong>\${escapeHtml(data.stats.last_invoice_number)}</strong>
+	      </div>
       \`;
     }
 
@@ -213,10 +222,10 @@ function renderAdminPage() {
           return;
         }
 
-        box.innerHTML =
-          '<div style="padding:12px;border:1px solid #b7e4c7;background:#f0fff4;border-radius:8px;">' +
-          'Created ' + data.created_count + ' missing invoice(s).' +
-          '</div>';
+	        box.innerHTML =
+	          '<div style="padding:12px;border:1px solid #b7e4c7;background:#f0fff4;border-radius:8px;">' +
+	          'Created ' + escapeHtml(data.created_count) + ' missing invoice(s).' +
+	          '</div>';
 
         loadInvoices();
       }
@@ -240,15 +249,15 @@ function renderAdminPage() {
           return;
         }
 
-        const missingItems = missing.map(order =>
-          '<li>Order #' + order.order_number + ' — €' + order.total_amount + ' — ' + order.created_at + '</li>'
-        ).join("");
+	      const missingItems = missing.map(order =>
+	          '<li>Order #' + escapeHtml(order.order_number) + ' — €' + escapeHtml(order.total_amount) + ' — ' + escapeHtml(order.created_at) + '</li>'
+	        ).join("");
 
-        box.innerHTML =
-          '<div style="padding:12px;border:1px solid #f6c177;background:#fff7ed;border-radius:8px;">' +
-            '<strong>' + missing.length + ' missing invoice(s) found:</strong>' +
-            '<ul>' + missingItems + '</ul>' +
-          '</div>';
+	        box.innerHTML =
+	          '<div style="padding:12px;border:1px solid #f6c177;background:#fff7ed;border-radius:8px;">' +
+	            '<strong>' + escapeHtml(missing.length) + ' missing invoice(s) found:</strong>' +
+	            '<ul>' + missingItems + '</ul>' +
+	          '</div>';
 
       }
       else if (event.target.id === "downloadZip") {
@@ -322,6 +331,7 @@ export async function handleAdminInvoices(request, env) {
     SELECT
       shopify_order_number,
       invoice_number,
+      pdf_key,
       pdf_url,
       status,
       issued_at,

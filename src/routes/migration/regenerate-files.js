@@ -159,14 +159,14 @@ export async function handleRegenerateFiles(request, env) {
       }
 
       if (
-        existingInvoice.pdf_url &&
-        existingInvoice.pdf_url.endsWith(".pdf")
+        (existingInvoice.pdf_key || existingInvoice.pdf_url) &&
+        (existingInvoice.pdf_key || existingInvoice.pdf_url).endsWith(".pdf")
       ) {
         results.push({
           order_number: order.orderNumber,
           invoice_number: existingInvoice.invoice_number,
           status: "skipped_existing_pdf",
-          file_url: existingInvoice.pdf_url
+          file_url: existingInvoice.pdf_key || existingInvoice.pdf_url
         });
 
         continue;
@@ -208,9 +208,6 @@ export async function handleRegenerateFiles(request, env) {
         }
       );
 
-      const htmlFileUrl =
-        `${env.PUBLIC_BUCKET_URL}/${htmlFileName}`;
-
       const pdfResult = await uploadInvoicePdf(env, {
         invoiceNumber: existingInvoice.invoice_number,
         invoiceHtml
@@ -218,12 +215,14 @@ export async function handleRegenerateFiles(request, env) {
 
       await env.DB.prepare(`
         UPDATE invoice_registry
-        SET pdf_url = ?,
+        SET pdf_key = ?,
+            pdf_url = ?,
             updated_at = CURRENT_TIMESTAMP
         WHERE invoice_number = ?
       `)
         .bind(
-          pdfResult.fileUrl,
+          pdfResult.pdfKey,
+          pdfResult.pdfKey,
           existingInvoice.invoice_number
         )
         .run();
@@ -232,11 +231,11 @@ export async function handleRegenerateFiles(request, env) {
         order_number: order.orderNumber,
         invoice_number: existingInvoice.invoice_number,
         status: "regenerated",
-        file_url: pdfResult.fileUrl,
-        html_file_url: htmlFileUrl
+        file_url: pdfResult.pdfKey,
+        html_file_url: htmlFileName
       });
       if (targetOrders.length > 1 && target !== targetOrders[targetOrders.length - 1]) {
-        await delay(45000);wra
+        await delay(45000);
       }
     }
 

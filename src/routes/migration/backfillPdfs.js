@@ -8,9 +8,9 @@ export async function handleBackfillPdfs(request, env) {
     const limit = Number(body.limit || 2);
 
     const rows = await env.DB.prepare(`
-      SELECT invoice_number, pdf_url
+      SELECT invoice_number, pdf_key, pdf_url
       FROM invoice_registry
-      WHERE pdf_url LIKE '%.html'
+      WHERE COALESCE(pdf_key, pdf_url) LIKE '%.html'
       ORDER BY invoice_sequence ASC
       LIMIT ?
     `)
@@ -42,12 +42,14 @@ export async function handleBackfillPdfs(request, env) {
 
       await env.DB.prepare(`
         UPDATE invoice_registry
-        SET pdf_url = ?,
+        SET pdf_key = ?,
+            pdf_url = ?,
             updated_at = CURRENT_TIMESTAMP
         WHERE invoice_number = ?
       `)
         .bind(
-          pdfResult.fileUrl,
+          pdfResult.pdfKey,
+          pdfResult.pdfKey,
           invoice.invoice_number
         )
         .run();
@@ -55,7 +57,7 @@ export async function handleBackfillPdfs(request, env) {
       results.push({
         invoice_number: invoice.invoice_number,
         status: "pdf_created",
-        pdf_url: pdfResult.fileUrl
+        pdf_key: pdfResult.pdfKey
       });
     }
 

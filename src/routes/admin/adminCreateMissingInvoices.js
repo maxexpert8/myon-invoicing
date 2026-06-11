@@ -247,7 +247,7 @@ export async function handleAdminCreateMissingInvoices(request, env) {
         orderNumber: invoiceData.orderNumber,
         invoiceSequence,
         invoiceNumber,
-        fileUrl: pdfResult.fileUrl,
+        pdfKey: pdfResult.pdfKey,
         source: "admin_reconcile_auto_create",
         issuedAt: invoiceData.issuedAt,
         customerName: invoiceData.customerName || null,
@@ -259,7 +259,7 @@ export async function handleAdminCreateMissingInvoices(request, env) {
         order_number: orderNumber,
         status: "created",
         invoice_number: invoiceNumber,
-        pdf_url: pdfResult.fileUrl
+        pdf_key: pdfResult.pdfKey
       });
     }
 

@@ -62,6 +62,7 @@ export async function uploadInvoicePdf(
 
   return {
     fileName,
-    fileUrl: `${env.PUBLIC_BUCKET_URL}/${fileName}`
+    pdfKey: fileName,
+    fileUrl: fileName
   };
 }

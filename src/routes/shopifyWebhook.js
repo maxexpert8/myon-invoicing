@@ -2,8 +2,11 @@ import { json } from "../utils/response.js";
 
 import {
   getInvoiceByOrderNumber,
-  createInvoiceRegistryRecord,
-  allocateInvoiceSequence
+  allocateInvoiceSequence,
+  createPendingInvoiceRegistryRecord,
+  markInvoiceFailed,
+  markInvoiceIssued,
+  markInvoicePending
 } from "../services/invoiceRegistry.js";
 
 import { renderInvoiceHtml } from "../services/invoiceRenderer.js";
@@ -246,20 +249,99 @@ export async function handleShopifyWebhook(request, env) {
         message: "Invoice already exists",
         order_number: orderNumber,
         invoice_number: existing.invoice_number,
-        file_url: existing.pdf_url,
+        file_url: existing.pdf_key || existing.pdf_url,
+        status: existing.status,
         existing: true
       });
     }
 
-    const invoiceSequence = await allocateInvoiceSequence(env);
-    const invoiceNumber = `${env.INVOICE_PREFIX}${invoiceSequence}`;
+    if (!env.INVOICE_QUEUE) {
+      return json({
+        error: "Missing invoice queue binding"
+      }, 500);
+    }
 
-    const invoiceData = normalizeWebhookOrder(
+    await env.INVOICE_QUEUE.send({
       order,
-      invoiceNumber,
-      invoiceSequence
-    );
+      topic,
+      webhookId,
+      receivedAt: new Date().toISOString()
+    });
 
+    return json({
+      success: true,
+      queued: true,
+      topic,
+      webhook_id: webhookId || null,
+      order_number: orderNumber,
+      financial_status: financialStatus
+    }, 202);
+
+  } catch (error) {
+    return json({
+      error: "Shopify webhook failed",
+      message: error.message
+    }, 500);
+  }
+}
+
+export async function processShopifyInvoiceQueueMessage(message, env) {
+  const {
+    order,
+    topic,
+    webhookId
+  } = message;
+
+  const orderNumber = Number(String(order?.name || "").replace("#", ""));
+
+  if (!orderNumber) {
+    return {
+      skipped: true,
+      reason: "Missing Shopify order number"
+    };
+  }
+
+  const existing = await getInvoiceByOrderNumber(env, orderNumber);
+
+  if (existing?.status === "issued") {
+    return {
+      skipped: true,
+      reason: "Invoice already issued",
+      order_number: orderNumber,
+      invoice_number: existing.invoice_number
+    };
+  }
+
+  const invoiceSequence = existing?.invoice_sequence
+    ? Number(existing.invoice_sequence)
+    : await allocateInvoiceSequence(env);
+
+  const invoiceNumber = existing?.invoice_number ||
+    `${env.INVOICE_PREFIX}${invoiceSequence}`;
+
+  const invoiceData = normalizeWebhookOrder(
+    order,
+    invoiceNumber,
+    invoiceSequence
+  );
+
+  if (existing) {
+    await markInvoicePending(env, invoiceNumber);
+  } else {
+    await createPendingInvoiceRegistryRecord(env, {
+      shopifyOrderId: invoiceData.shopifyOrderId,
+      orderNumber: invoiceData.orderNumber,
+      invoiceSequence,
+      invoiceNumber,
+      source: `shopify_webhook:${topic || "unknown"}:${webhookId || "no-id"}`,
+      issuedAt: invoiceData.issuedAt,
+      customerName: invoiceData.customerName || null,
+      customerEmail: invoiceData.customerEmail || null,
+      totalAmount: invoiceData.totalGross || null
+    });
+  }
+
+  try {
     const invoiceHtml = renderInvoiceHtml(invoiceData);
 
     const htmlFileName = `invoices/${invoiceNumber}.html`;
@@ -272,41 +354,33 @@ export async function handleShopifyWebhook(request, env) {
       }
     });
 
-    const htmlFileUrl = `${env.PUBLIC_BUCKET_URL}/${htmlFileName}`;
-
     const pdfResult = await uploadInvoicePdf(env, {
       invoiceNumber,
       invoiceHtml
     });
 
-    const fileUrl = pdfResult.fileUrl;
+    const pdfKey = pdfResult.pdfKey;
 
-    await createInvoiceRegistryRecord(env, {
-      shopifyOrderId: invoiceData.shopifyOrderId,
-      orderNumber: invoiceData.orderNumber,
-      invoiceSequence,
+    await markInvoiceIssued(env, {
       invoiceNumber,
-      fileUrl,
-      source: `shopify_webhook:${topic || "unknown"}:${webhookId || "no-id"}`,
-      issuedAt: invoiceData.issuedAt,
-      customerName: invoiceData.customerName || null,
-      customerEmail: invoiceData.customerEmail || null,
-      totalAmount: invoiceData.totalGross || null
+      pdfKey,
     });
 
-    return json({
+    return {
       success: true,
       order_number: invoiceData.orderNumber,
       invoice_sequence: invoiceSequence,
       invoice_number: invoiceNumber,
-      file_url: fileUrl,
-      html_file_url: htmlFileUrl
-    });
+      file_url: pdfKey,
+      html_file_url: htmlFileName
+    };
 
   } catch (error) {
-    return json({
-      error: "Shopify webhook failed",
-      message: error.message
-    }, 500);
+    await markInvoiceFailed(env, {
+      invoiceNumber,
+      errorMessage: error.message
+    });
+
+    throw error;
   }
 }

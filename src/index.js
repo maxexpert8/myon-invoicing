@@ -4,7 +4,10 @@ import { handleManualInvoice } from "./routes/manualInvoice.js";
 
 import { handleMigrationImportCsv } from "./routes/migration/migrationImportCsv.js";
 
-import { handleShopifyWebhook } from "./routes/shopifyWebhook.js";
+import {
+  handleShopifyWebhook,
+  processShopifyInvoiceQueueMessage
+} from "./routes/shopifyWebhook.js";
 
 import { handleInvoiceLink } from "./routes/invoiceLink.js";
 
@@ -133,5 +136,14 @@ export default {
     return json({
       error: "Not Found"
     }, 404);
+  },
+
+  async queue(batch, env) {
+    for (const message of batch.messages) {
+      await processShopifyInvoiceQueueMessage(
+        message.body,
+        env
+      );
+    }
   }
 };

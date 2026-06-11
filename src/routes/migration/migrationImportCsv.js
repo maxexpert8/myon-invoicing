@@ -62,7 +62,7 @@ export async function handleMigrationImportCsv(
             existing.invoice_number,
 
           file_url:
-            existing.pdf_url
+            existing.pdf_key || existing.pdf_url
         });
 
         continue;
@@ -162,14 +162,12 @@ export async function handleMigrationImportCsv(
         }
       });
 
-      const htmlFileUrl = `${env.PUBLIC_BUCKET_URL}/${htmlFileName}`;
-
       const pdfResult = await uploadInvoicePdf(env, {
         invoiceNumber: order.invoiceNumber,
         invoiceHtml
       });
 
-      const fileUrl = pdfResult.fileUrl;
+      const pdfKey = pdfResult.pdfKey;
       
       await createInvoiceRegistryRecord(
         env,
@@ -186,7 +184,7 @@ export async function handleMigrationImportCsv(
           invoiceNumber:
             order.invoiceNumber,
 
-          fileUrl,
+          pdfKey,
 
           source:
             "migration_csv",
@@ -225,10 +223,10 @@ export async function handleMigrationImportCsv(
           "created",
 
         file_url:
-          fileUrl,
+          pdfKey,
 
         html_file_url: 
-          htmlFileUrl
+          htmlFileName
       });
     }
 

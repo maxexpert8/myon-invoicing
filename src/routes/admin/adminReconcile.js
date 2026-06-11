@@ -96,7 +96,7 @@ export async function handleAdminReconcile(request, env) {
     const orderNumber = Number(order.name.replace("#", ""));
 
     const invoice = await env.DB.prepare(`
-      SELECT invoice_number, pdf_url
+      SELECT invoice_number, pdf_key, pdf_url
       FROM invoice_registry
       WHERE shopify_order_number = ?
       LIMIT 1
@@ -112,7 +112,7 @@ export async function handleAdminReconcile(request, env) {
       total_amount: order.totalPriceSet.shopMoney.amount,
       invoice_exists: Boolean(invoice),
       invoice_number: invoice?.invoice_number || null,
-      pdf_url: invoice?.pdf_url || null,
+      pdf_key: invoice?.pdf_key || invoice?.pdf_url || null,
       status: invoice ? "ok" : "missing_invoice"
     });
   }

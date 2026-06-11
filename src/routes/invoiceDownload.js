@@ -3,10 +3,10 @@ function getInvoiceKey(invoice) {
     return invoice.pdf_key;
   }
 
-  const pdfUrl = String(invoice.pdf_url || "");
-  const match = pdfUrl.match(/\/(invoices\/[^/?#]+\.pdf)(?:[?#].*)?$/);
+  const legacyPdfUrl = String(invoice.pdf_url || "");
+  const match = legacyPdfUrl.match(/\/(invoices\/[^/?#]+\.pdf)(?:[?#].*)?$/);
 
-  return match ? match[1] : "";
+  return match ? match[1] : legacyPdfUrl;
 }
 
 export async function handleInvoiceDownload(
@@ -24,7 +24,7 @@ export async function handleInvoiceDownload(
   }
 
   const invoice = await env.DB.prepare(`
-    SELECT invoice_number, pdf_url, download_token
+    SELECT invoice_number, pdf_key, pdf_url, download_token
     FROM invoice_registry
     WHERE download_token = ?
     LIMIT 1
