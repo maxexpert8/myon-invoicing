@@ -1,4 +1,5 @@
 import Papa from "papaparse";
+import { countryName } from "../utils/invoiceDataHelpers.js";
 
 import {
   cleanValue,
@@ -14,34 +15,8 @@ const SKIPPED_ORDER_NUMBERS = new Set([
   1055
 ]);
 
-const DEFAULT_MIGRATION_PRODUCT_IMAGE = 
-  "https://cdn.shopify.com/s/files/1/0863/0622/6507/files/Dr._Rubin_Digitale_Begleitung_Mobile.png";
+const DEFAULT_MIGRATION_PRODUCT_IMAGE = "https://cdn.shopify.com/s/files/1/0863/0622/6507/files/Dr._Rubin_Digitale_Begleitung_Mobile.png";
 
-const COUNTRY_NAMES = {
-  AT: "Austria",
-  BE: "Belgium",
-  CH: "Switzerland",
-  DE: "Germany",
-  DK: "Denmark",
-  ES: "Spain",
-  FI: "Finland",
-  FR: "France",
-  GB: "United Kingdom",
-  IE: "Ireland",
-  IT: "Italy",
-  LU: "Luxembourg",
-  NL: "Netherlands",
-  NO: "Norway",
-  PL: "Poland",
-  SE: "Sweden",
-  US: "United States"
-};
-
-function getCountryName(countryCode) {
-  const code = cleanValue(countryCode).toUpperCase();
-
-  return COUNTRY_NAMES[code] || code;
-}
 
 function getTaxTitleWithoutRate(taxName) {
   return cleanValue(taxName)

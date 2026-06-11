@@ -128,7 +128,7 @@ describe("invoice worker routing and auth", () => {
 	});
 
 	it("validates public invoice-link query params", async () => {
-		const response = await SELF.fetch("http://example.com/invoice-link");
+		const response = await SELF.fetch("http://example.com/invoice-link?format=json");
 
 		expect(response.status).toBe(400);
 		expect(await response.json()).toMatchObject({

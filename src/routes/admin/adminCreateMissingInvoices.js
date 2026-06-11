@@ -1,6 +1,8 @@
 import { json } from "../../utils/response.js";
-import productImages from "../../../products_images.json";
+import { getProductImage, countryName } from "../../utils/invoiceDataHelpers.js";
 import { isAuthorizedAdminRequest } from "../../utils/adminAuth.js";
+import { withTimeout } from "../../utils/asyncGuards.js";
+
 
 import {
   getInvoiceByOrderNumber,
@@ -12,14 +14,14 @@ import { renderInvoiceHtml } from "../../services/invoiceRenderer.js";
 import { uploadInvoicePdf } from "../../services/pdfRenderer.js";
 
 async function fetchRecentPaidOrders(env) {
-  const response = await fetch(
-    `https://${env.SHOPIFY_SHOP_DOMAIN}/admin/api/${env.SHOPIFY_API_VERSION}/orders.json?status=any&financial_status=paid&limit=50&order=created_at%20desc`,
+  const response = await withTimeout(
+    fetch(`https://${env.SHOPIFY_SHOP_DOMAIN}/admin/api/${env.SHOPIFY_API_VERSION}/orders.json?status=any&financial_status=paid&limit=50&order=created_at%20desc`,
     {
       headers: {
         "X-Shopify-Access-Token": env.SHOPIFY_ADMIN_API_TOKEN
       }
     }
-  );
+  ), 15000, "Shopify API request");
 
   const data = await response.json();
 
@@ -32,23 +34,6 @@ async function fetchRecentPaidOrders(env) {
 
 function money(value) {
   return Number(value || 0).toFixed(2);
-}
-
-function countryName(code) {
-  const countries = {
-    DE: "Germany",
-    SE: "Sweden",
-    AT: "Austria",
-    CH: "Switzerland",
-    NL: "Netherlands",
-    FR: "France",
-    IT: "Italy",
-    ES: "Spain",
-    GB: "United Kingdom",
-    US: "United States"
-  };
-
-  return countries[String(code || "").toUpperCase()] || code || "";
 }
 
 function normalizeOrder(order, invoiceNumber, invoiceSequence) {
@@ -68,7 +53,7 @@ function normalizeOrder(order, invoiceNumber, invoiceSequence) {
     const lineNet = money(Number(lineGross) - Number(taxAmount));
 
     return {
-      productImage: productImages[line.title || line.name] || line.image || "",
+      productImage: getProductImage(line),
       productName: line.title || line.name || "Produkt",
       quantity,
       taxTitle: String(taxLine.title || "").replace(/\s*\d+(?:[.,]\d+)?%/g, "").trim(),

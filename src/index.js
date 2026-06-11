@@ -2,6 +2,8 @@ import { json } from "./utils/response.js";
 
 import { verifyManualSecret } from "./utils/adminAuth.js";
 
+import { enforceRequestSize } from "./utils/requestGuards.js";
+
 import { handleManualInvoice } from "./routes/manualInvoice.js";
 
 import { handleMigrationImportCsv } from "./routes/migration/migrationImportCsv.js";
@@ -96,6 +98,16 @@ export default {
   async fetch(request, env) {
     try {
       const url = new URL(request.url);
+      const sizeLimitResponse = enforceRequestSize(
+        request,
+        url.pathname.startsWith("/webhooks/")
+          ? 1024 * 1024
+          : 256 * 1024
+      );
+
+      if (sizeLimitResponse) {
+        return withCors(sizeLimitResponse, request);
+      }
       const routeKey = `${request.method} ${url.pathname}`;
 
       if (request.method === "OPTIONS") {
@@ -148,10 +160,40 @@ export default {
 
   async queue(batch, env) {
     for (const message of batch.messages) {
-      await processShopifyInvoiceQueueMessage(
-        message.body,
-        env
-      );
+      try {
+        const result = await processShopifyInvoiceQueueMessage(
+          message.body,
+          env
+        );
+
+        console.log("Invoice queue message processed", {
+          orderNumber:
+            result?.order_number ||
+            message.body?.order?.order_number ||
+            message.body?.order?.name ||
+            null,
+          invoiceNumber: result?.invoice_number || null,
+          skipped: result?.skipped || false,
+          reason: result?.reason || null
+        });
+
+        message.ack?.();
+      } catch (error) {
+        const order = message.body?.order || {};
+
+        console.error("Invoice queue message failed", {
+          message: error?.message,
+          name: error?.name,
+          stack: error?.stack,
+          topic: message.body?.topic || null,
+          webhookId: message.body?.webhookId || null,
+          orderId: order.id || null,
+          orderName: order.name || null,
+          orderNumber: order.order_number || null
+        });
+
+        message.retry?.();
+      }
     }
   }
 };

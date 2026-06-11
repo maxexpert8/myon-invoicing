@@ -1,4 +1,4 @@
-
+import { withTimeout } from "../utils/asyncGuards.js";
 
 export async function renderPdfFromHtml(env, html) {
   if (!env.BROWSER) {
@@ -7,7 +7,7 @@ export async function renderPdfFromHtml(env, html) {
     );
   }
 
-  const response = await env.BROWSER.quickAction("pdf", {
+  const response = await withTimeout(env.BROWSER.quickAction("pdf", {
     html,
     pdfOptions: {
       format: "a4",
@@ -20,7 +20,7 @@ export async function renderPdfFromHtml(env, html) {
         left: "6mm"
       }
     }
-  });
+  }), 30000, "PDF rendering");
 
   if (!response.ok) {
     const errorText = await response.text();

@@ -1,16 +1,12 @@
 import { json } from "../../utils/response.js";
+import { withTimeout } from "../../utils/asyncGuards.js";
+import { getProductImage, countryName } from "../../utils/invoiceDataHelpers.js";
 
-import {
-  parseMigrationCsv
-} from "../../services/csvMigration.js";
-
-import {
-  getInvoiceByOrderNumber
-} from "../../services/invoiceRegistry.js";
-
+import { parseMigrationCsv } from "../../services/csvMigration.js";
+import { getInvoiceByOrderNumber} from "../../services/invoiceRegistry.js";
 import { renderInvoiceHtml } from "../../services/invoiceRenderer.js";
 import { uploadInvoicePdf } from "../../services/pdfRenderer.js";
-import productImages from "../../../products_images.json";
+
 
 function delay(ms) {
   return new Promise(resolve =>
@@ -112,23 +108,6 @@ function money(value) {
   return Number(value || 0).toFixed(2);
 }
 
-function countryName(code) {
-  const countries = {
-    DE: "Germany",
-    SE: "Sweden",
-    AT: "Austria",
-    CH: "Switzerland",
-    NL: "Netherlands",
-    FR: "France",
-    IT: "Italy",
-    ES: "Spain",
-    GB: "United Kingdom",
-    US: "United States"
-  };
-
-  return countries[String(code || "").toUpperCase()] || code || "";
-}
-
 function extractRateFromTaxLine(taxLine) {
   if (taxLine?.rate !== undefined) {
     return `${Number(taxLine.rate) * 100}%`;
@@ -157,14 +136,14 @@ async function getInvoiceByInvoiceNumber(env, invoiceNumber) {
 }
 
 async function fetchShopifyOrderById(env, shopifyOrderId) {
-  const response = await fetch(
-    `https://${env.SHOPIFY_SHOP_DOMAIN}/admin/api/${env.SHOPIFY_API_VERSION}/orders/${shopifyOrderId}.json?status=any`,
+  const response = await withTimeout(
+  fetch(`https://${env.SHOPIFY_SHOP_DOMAIN}/admin/api/${env.SHOPIFY_API_VERSION}/orders/${shopifyOrderId}.json?status=any`,
     {
       headers: {
         "X-Shopify-Access-Token": env.SHOPIFY_ADMIN_API_TOKEN
       }
     }
-  );
+  ), 15000, "Shopify API request");
 
   const data = await response.json();
 
@@ -236,7 +215,7 @@ function buildInvoiceDataFromShopifyOrder(order, existingInvoice) {
     const lineNet = money(Number(lineGross) - Number(taxAmount));
 
     return {
-      productImage: productImages[line.title || line.name] || line.image || "",
+      productImage: getProductImage(line),
       productName: line.title || line.name || "Produkt",
       quantity,
       taxTitle,

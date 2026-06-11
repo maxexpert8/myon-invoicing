@@ -1,9 +1,10 @@
 import { json } from "../../utils/response.js";
 import { isAuthorizedAdminRequest } from "../../utils/adminAuth.js";
+import { withTimeout } from "../../utils/asyncGuards.js";
 
 async function fetchRecentPaidOrders(env) {
-  const response = await fetch(
-    `https://${env.SHOPIFY_SHOP_DOMAIN}/admin/api/${env.SHOPIFY_API_VERSION}/graphql.json`,
+  const response = await withTimeout(
+    fetch(`https://${env.SHOPIFY_SHOP_DOMAIN}/admin/api/${env.SHOPIFY_API_VERSION}/graphql.json`,
     {
       method: "POST",
       headers: {
@@ -31,7 +32,7 @@ async function fetchRecentPaidOrders(env) {
         `
       })
     }
-  );
+  ), 15000, "Shopify API request");
 
   const data = await response.json();
 

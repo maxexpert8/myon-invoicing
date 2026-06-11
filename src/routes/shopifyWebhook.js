@@ -1,5 +1,6 @@
 import { json } from "../utils/response.js";
 import { verifyHmacSha256Base64 } from "../utils/security.js";
+import { getProductImage, countryName } from "../utils/invoiceDataHelpers.js";
 
 import {
   getInvoiceByOrderNumber,
@@ -12,7 +13,6 @@ import {
 
 import { renderInvoiceHtml } from "../services/invoiceRenderer.js";
 import { uploadInvoicePdf } from "../services/pdfRenderer.js";
-import productImages from "../../products_images.json";
 
 function clean(value) {
   return String(value ?? "").trim();
@@ -22,22 +22,6 @@ function money(value) {
   return Number(value || 0).toFixed(2);
 }
 
-function countryName(code) {
-  const countries = {
-    DE: "Germany",
-    SE: "Sweden",
-    AT: "Austria",
-    CH: "Switzerland",
-    NL: "Netherlands",
-    FR: "France",
-    IT: "Italy",
-    ES: "Spain",
-    GB: "United Kingdom",
-    US: "United States"
-  };
-
-  return countries[String(code || "").toUpperCase()] || code || "";
-}
 
 function extractRateFromTaxLine(taxLine) {
   if (taxLine?.rate !== undefined) {
@@ -81,10 +65,7 @@ function normalizeWebhookOrder(order, invoiceNumber, invoiceSequence) {
     const lineNet = money(Number(lineGross) - Number(taxAmount));
 
     return {
-      productImage:
-        productImages[line.title || line.name] ||
-        line.image ||
-        "",
+      productImage: getProductImage(line),
       productName: line.title || line.name || "Produkt",
       quantity,
       taxTitle,

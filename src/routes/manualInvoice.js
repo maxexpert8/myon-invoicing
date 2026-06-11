@@ -1,4 +1,5 @@
 import { json } from "../utils/response.js";
+import { withTimeout } from "../utils/asyncGuards.js";
 
 import {
   getInvoiceByOrderNumber,
@@ -87,7 +88,14 @@ export async function handleManualInvoice(
       }
     );
 
-    const pdfResult = await uploadInvoicePdf(env, { invoiceNumber, invoiceHtml });
+    const pdfResult = await withTimeout(
+      uploadInvoicePdf(env, {
+        invoiceNumber,
+        invoiceHtml
+      }),
+      30000,
+      "PDF generation"
+    );
 
     await createInvoiceRegistryRecord(
       env,
