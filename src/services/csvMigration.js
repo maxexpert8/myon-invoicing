@@ -95,136 +95,160 @@ export function parseMigrationCsv(
   csvText,
   {
     invoicePrefix = "INV-MYONS-",
-    startingInvoiceSequence = 10001
+    startingInvoiceSequence = 10001,
+    maxRows = 25000
   } = {}
 ) {
-  const parsed = Papa.parse(csvText, {
-    header: true,
-    skipEmptyLines: true
-  });
-
-  if (parsed.errors?.length) {
-    throw new Error(
-      `CSV parse failed: ${parsed.errors[0].message}`
-    );
+  if (!csvText || typeof csvText !== "string") {
+    throw new Error("CSV text is required");
   }
 
   const grouped = new Map();
+  let rowCount = 0;
+  let parseError = null;
 
-  for (const row of parsed.data) {
-    const orderNumber = Number(
-      String(row.Name || "")
-        .replace("#", "")
-        .trim()
-    );
+  Papa.parse(csvText, {
+    header: true,
+    skipEmptyLines: true,
+    step(result, parser) {
+      if (result.errors?.length) {
+        parseError = result.errors[0];
+        parser.abort();
+        return;
+      }
 
-    if (!orderNumber) {
-      continue;
-    }
+      rowCount += 1;
 
-    if (SKIPPED_ORDER_NUMBERS.has(orderNumber)) {
-      continue;
-    }
+      if (rowCount > maxRows) {
+        parseError = new Error(
+          `CSV row limit exceeded. Maximum allowed rows: ${maxRows}`
+        );
+        parser.abort();
+        return;
+      }
 
-    const taxName =
-      cleanValue(row["Tax 1 Name"]) ||
-      "DE MwSt 19%";
+      const row = result.data;
 
-    const taxRate = extractVatRate(taxName);
-    const taxTitle = getTaxTitleWithoutRate(taxName);
-    const billingCountry = cleanValue(row["Billing Country"]);
+      const orderNumber = Number(
+        String(row.Name || "")
+          .replace("#", "")
+          .trim()
+      );
 
-    if (!grouped.has(orderNumber)) {
-      grouped.set(orderNumber, {
-        orderNumber,
+      if (!orderNumber) {
+        return;
+      }
 
-        shopifyOrderId:
-          cleanValue(row.Id),
+      if (SKIPPED_ORDER_NUMBERS.has(orderNumber)) {
+        return;
+      }
 
-        createdAt:
-          cleanValue(row["Created at"]),
+      const taxName =
+        cleanValue(row["Tax 1 Name"]) ||
+        "DE MwSt 19%";
 
-        email:
-          cleanValue(row.Email),
+      const taxRate = extractVatRate(taxName);
+      const taxTitle = getTaxTitleWithoutRate(taxName);
+      const billingCountry = cleanValue(row["Billing Country"]);
 
-        billingName:
-          cleanValue(row["Billing Name"]),
+      if (!grouped.has(orderNumber)) {
+        grouped.set(orderNumber, {
+          orderNumber,
 
-        billingCompany:
-          cleanValue(row["Billing Company"]),
+          shopifyOrderId:
+            cleanValue(row.Id),
 
-        billingAddress1:
-          cleanValue(row["Billing Address1"]),
+          createdAt:
+            cleanValue(row["Created at"]),
 
-        billingAddress2:
-          cleanValue(row["Billing Address2"]),
+          email:
+            cleanValue(row.Email),
 
-        billingCity:
-          cleanValue(row["Billing City"]),
+          billingName:
+            cleanValue(row["Billing Name"]),
 
-        billingZip:
-          cleanZip(row["Billing Zip"]),
+          billingCompany:
+            cleanValue(row["Billing Company"]),
 
-        billingCountry,
+          billingAddress1:
+            cleanValue(row["Billing Address1"]),
 
-        billingCountryName:
-          getCountryName(billingCountry),
+          billingAddress2:
+            cleanValue(row["Billing Address2"]),
 
-        paymentMethod:
-          cleanValue(row["Payment Method"]),
+          billingCity:
+            cleanValue(row["Billing City"]),
 
-        subtotal:
-          cleanMoney(row.Subtotal),
+          billingZip:
+            cleanZip(row["Billing Zip"]),
 
-        taxes:
-          cleanMoney(row.Taxes),
+          billingCountry,
 
-        total:
-          cleanMoney(row.Total),
+          billingCountryName:
+            countryName(billingCountry),
 
-        taxName,
+          paymentMethod:
+            cleanValue(row["Payment Method"]),
 
-        taxRate,
+          subtotal:
+            cleanMoney(row.Subtotal),
+
+          taxes:
+            cleanMoney(row.Taxes),
+
+          total:
+            cleanMoney(row.Total),
+
+          taxName,
+
+          taxRate,
+
+          taxTitle,
+
+          taxValue:
+            cleanMoney(row["Tax 1 Value"]),
+
+          items: []
+        });
+      }
+
+      const order = grouped.get(orderNumber);
+      const quantity = Number(row["Lineitem quantity"] || 1);
+      const unitPrice = cleanMoney(row["Lineitem price"]);
+      const lineGross = getLineGross(row);
+
+      order.items.push({
+        productImage: DEFAULT_MIGRATION_PRODUCT_IMAGE,
+
+        productName:
+          cleanValue(row["Lineitem name"]),
+
+        quantity,
 
         taxTitle,
 
-        taxValue:
-          cleanMoney(row["Tax 1 Value"]),
+        taxRate,
 
-        items: []
+        taxFullTitle:
+          taxName,
+
+        unitPrice,
+
+        lineGross,
+
+        taxAmount:
+          "0.00",
+
+        lineNet:
+          lineGross
       });
     }
+  });
 
-    const order = grouped.get(orderNumber);
-    const quantity = Number(row["Lineitem quantity"] || 1);
-    const unitPrice = cleanMoney(row["Lineitem price"]);
-    const lineGross = getLineGross(row);
-
-    order.items.push({
-      productImage: DEFAULT_MIGRATION_PRODUCT_IMAGE,
-
-      productName:
-        cleanValue(row["Lineitem name"]),
-
-      quantity,
-
-      taxTitle,
-
-      taxRate,
-
-      taxFullTitle:
-        taxName,
-
-      unitPrice,
-
-      lineGross,
-
-      taxAmount:
-        "0.00",
-
-      lineNet:
-        lineGross
-    });
+  if (parseError) {
+    throw new Error(
+      parseError.message || String(parseError)
+    );
   }
 
   const realOrders =

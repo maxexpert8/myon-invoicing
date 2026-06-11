@@ -315,10 +315,14 @@ async function regenerateExistingInvoiceFromShopify(env, existingInvoice) {
     }
   );
 
-  const pdfResult = await uploadInvoicePdf(env, {
-    invoiceNumber: existingInvoice.invoice_number,
-    invoiceHtml
-  });
+  const pdfResult = await withTimeout(
+    uploadInvoicePdf(env, {
+      invoiceNumber: existingInvoice.invoice_number,
+      invoiceHtml
+    }),
+    30000,
+    `PDF regeneration for ${existingInvoice.invoice_number}`
+  );
 
   await env.DB.prepare(`
     UPDATE invoice_registry
@@ -454,54 +458,101 @@ export async function handleRegenerateFiles(request, env) {
       const order = target.order;
       const existingInvoice = target.existingInvoice;
 
-      const invoiceData = buildInvoiceData(
-        order,
-        existingInvoice
-      );
+      try {
+        const invoiceData = buildInvoiceData(
+          order,
+          existingInvoice
+        );
 
-      const invoiceHtml = renderInvoiceHtml(invoiceData);
+        const invoiceHtml = renderInvoiceHtml(invoiceData);
 
-      const htmlFileName =
-        `invoices/${existingInvoice.invoice_number}.html`;
+        const htmlFileName =
+          `invoices/${existingInvoice.invoice_number}.html`;
 
-      await env.INVOICES.put(
-        htmlFileName,
-        invoiceHtml,
-        {
-          httpMetadata: {
-            contentType: "text/html; charset=utf-8",
-            contentDisposition:
-              `inline; filename="${existingInvoice.invoice_number}.html"`
+        await env.INVOICES.put(
+          htmlFileName,
+          invoiceHtml,
+          {
+            httpMetadata: {
+              contentType: "text/html; charset=utf-8",
+              contentDisposition:
+                `inline; filename="${existingInvoice.invoice_number}.html"`
+            }
           }
-        }
-      );
+        );
 
-      const pdfResult = await uploadInvoicePdf(env, {
-        invoiceNumber: existingInvoice.invoice_number,
-        invoiceHtml
-      });
+        const pdfResult = await withTimeout(
+          uploadInvoicePdf(env, {
+            invoiceNumber: existingInvoice.invoice_number,
+            invoiceHtml
+          }),
+          30000,
+          `PDF regeneration for ${existingInvoice.invoice_number}`
+        );
 
-      await env.DB.prepare(`
-        UPDATE invoice_registry
-        SET pdf_key = ?,
-            pdf_url = ?,
-            updated_at = CURRENT_TIMESTAMP
-        WHERE invoice_number = ?
-      `)
-        .bind(
-          pdfResult.pdfKey,
-          pdfResult.pdfKey,
-          existingInvoice.invoice_number
-        )
-        .run();
+        await env.DB.prepare(`
+          UPDATE invoice_registry
+          SET pdf_key = ?,
+              pdf_url = ?,
+              status = ?,
+              invoice_error = NULL,
+              updated_at = CURRENT_TIMESTAMP
+          WHERE invoice_number = ?
+        `)
+          .bind(
+            pdfResult.pdfKey,
+            pdfResult.pdfKey,
+            "issued",
+            existingInvoice.invoice_number
+          )
+          .run();
 
-      results.push({
-        order_number: order.orderNumber,
-        invoice_number: existingInvoice.invoice_number,
-        status: "regenerated",
-        file_url: pdfResult.pdfKey,
-        html_file_url: htmlFileName
-      });
+        results.push({
+          order_number: order.orderNumber,
+          invoice_number: existingInvoice.invoice_number,
+          status: "regenerated",
+          file_url: pdfResult.pdfKey,
+          html_file_url: htmlFileName
+        });
+      } catch (error) {
+        console.error("Invoice regeneration failed", {
+          orderNumber: order.orderNumber,
+          invoiceNumber: existingInvoice.invoice_number,
+          message: error?.message,
+          name: error?.name,
+          stack: error?.stack
+        });
+
+        await env.DB.prepare(`
+          UPDATE invoice_registry
+          SET status = ?,
+              invoice_error = ?,
+              updated_at = CURRENT_TIMESTAMP
+          WHERE invoice_number = ?
+        `)
+          .bind(
+            "failed",
+            error?.message || "Invoice regeneration failed",
+            existingInvoice.invoice_number
+          )
+          .run()
+          .catch(dbError => {
+            console.error("Failed to record invoice regeneration error", {
+              orderNumber: order.orderNumber,
+              invoiceNumber: existingInvoice.invoice_number,
+              message: dbError?.message,
+              name: dbError?.name
+            });
+          });
+
+        results.push({
+          order_number: order.orderNumber,
+          invoice_number: existingInvoice.invoice_number,
+          status: "failed",
+          message: error?.message || "Invoice regeneration failed"
+        });
+      }
+
       if (targetOrders.length > 1 && target !== targetOrders[targetOrders.length - 1]) {
         await delay(45000);
       }
